@@ -1,6 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { buildCodexModelCatalogIds } from "@llmr/core/agents/codex/model-catalog";
+import { parseJsoncRecord } from "@llmr/core/agents/local-providers/shared";
 import type { AppConfig, GatewayProviderConfig, ProfileConfig, ProviderModelMetadata } from "@llmr/core/contracts/app";
 import {
   findModelCatalogEntry,
@@ -9,7 +10,9 @@ import {
   type ModelCatalogEntry
 } from "@llmr/core/gateway/model-catalog";
 import { withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through";
+import { isRecord } from "@llmr/core/profiles/apply-support";
 import { backupBeforeWrite, writeFileAtomic } from "@llmr/core/profiles/backup-files";
+import { isLlmrPiProvider } from "@llmr/core/profiles/json-config-strip";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
 import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
 import { resolveRuntimeAppPath, resolveUserPath } from "@llmr/core/runtime/app-paths";
@@ -47,16 +50,8 @@ export function resolvePiAgentDir(configDir: string, profile: ProfileConfig): st
 }
 
 export function isManagedPiModelsContent(content: string, providerId: string): boolean {
-  try {
-    const providers = (JSON.parse(content) as { providers?: unknown })?.providers;
-    if (!providers || typeof providers !== "object" || Array.isArray(providers)) {
-      return false;
-    }
-    const keys = Object.keys(providers);
-    return keys.length === 1 && keys[0] === providerId;
-  } catch {
-    return false;
-  }
+  const providers = parseJsoncRecord(content)?.providers;
+  return isRecord(providers) && isLlmrPiProvider(providers[providerId]);
 }
 
 export function piProviderId(profile: Pick<ProfileConfig, "providerId">): string {
@@ -79,7 +74,8 @@ export function writePiGatewayConfig(
   config: AppConfig,
   profile: ProfileConfig,
   token: string,
-  defaultModel: string
+  defaultModel: string,
+  write?: (file: string, content: string) => { backupFile?: string; changed: boolean }
 ): PiProfileConfigWriteResult {
   const profileHome = resolvePiAgentDir(configDir, profile);
   const sessionDir = resolvePiSessionDir(configDir, profile);
@@ -87,12 +83,19 @@ export function writePiGatewayConfig(
   const providerId = piProviderId(profile);
   const models = piProfileModels(config, profile, defaultModel);
   const model = models.includes(defaultModel) ? defaultModel : models[0] || defaultModel || "default";
-  const content = `${JSON.stringify(piModelsJson(config, profile, providerId, token, models), null, 2)}\n`;
-  const { backupFile, changed } = writeJsonFileIfChanged(
-    file,
-    content,
-    { backup: !isLlmrOwnedScope(profile), isManagedContent: (candidate) => isManagedPiModelsContent(candidate, providerId) }
-  );
+  const source = readPiModelsObject(file);
+  const providers = isRecord(source.providers) ? source.providers : {};
+  const content = `${JSON.stringify({
+    ...source,
+    providers: { ...providers, [providerId]: piProviderEntry(config, profile, token, models) }
+  }, null, 2)}\n`;
+  const { backupFile, changed } = write
+    ? write(file, content)
+    : writeJsonFileIfChanged(
+        file,
+        content,
+        { backup: !isLlmrOwnedScope(profile), isManagedContent: (candidate) => isManagedPiModelsContent(candidate, providerId) }
+      );
   mkdirSync(sessionDir, { mode: privateDirMode, recursive: true });
   chmodPrivateDir(profileHome);
   chmodPrivateDir(sessionDir);
@@ -107,10 +110,20 @@ export function writePiGatewayConfig(
   };
 }
 
-function piModelsJson(
+function readPiModelsObject(file: string): Record<string, unknown> {
+  if (!existsSync(file)) {
+    return {};
+  }
+  const parsed = parseJsoncRecord(readFileSync(file, "utf8"));
+  if (!parsed) {
+    throw new Error(`Pi models.json is not a valid JSON object: ${file}. Fix the file and save again.`);
+  }
+  return parsed;
+}
+
+function piProviderEntry(
   config: AppConfig,
   profile: ProfileConfig,
-  providerId: string,
   token: string,
   models: string[]
 ): Record<string, unknown> {
@@ -119,19 +132,15 @@ function piModelsJson(
     virtualModelProfiles: config.virtualModelProfiles ?? []
   };
   return {
-    providers: {
-      [providerId]: {
-        api: "openai-responses",
-        apiKey: token,
-        authHeader: true,
-        baseUrl: `${gatewayEndpoint(config).replace(/\/+$/g, "")}/v1`,
-        headers: {
-          "x-llmr-client": "pi",
-          "x-llmr-profile": profile.id || profile.name || "pi"
-        },
-        models: models.map((model) => piModelConfig(model, resolutionConfig))
-      }
-    }
+    api: "openai-responses",
+    apiKey: token,
+    authHeader: true,
+    baseUrl: `${gatewayEndpoint(config).replace(/\/+$/g, "")}/v1`,
+    headers: {
+      "x-llmr-client": "pi",
+      "x-llmr-profile": profile.id || profile.name || "pi"
+    },
+    models: models.map((model) => piModelConfig(model, resolutionConfig))
   };
 }
 

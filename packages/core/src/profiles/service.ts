@@ -81,7 +81,19 @@ import {
   scanTomlStatements,
   stripManagedCodexConfigContent
 } from "@llmr/core/profiles/codex-config-strip";
-import { isEmptyProviderJsonContent, isManagedProviderJsonContent, type ProviderJsonClient, stripManagedProviderJsonContent } from "@llmr/core/profiles/json-config-strip";
+import {
+  isEmptyPiModelsContent,
+  isEmptyProviderJsonContent,
+  isEmptyZcodeConfigContent,
+  isEmptyZcodeModelCacheContent,
+  isManagedProviderJsonContent,
+  type ProviderJsonClient,
+  stripManagedPiModelsContent,
+  stripManagedProviderJsonContent,
+  stripManagedZcodeConfigContent,
+  stripManagedZcodeModelCacheContent,
+  zcodeManagedProviderIds
+} from "@llmr/core/profiles/json-config-strip";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
 import { refreshClaudeAppModelDiscoveryCache, restoreClaudeAppGatewayConfig, syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
 import { probeExistingLlmrGateway } from "@llmr/core/gateway/existing-gateway-probe";
@@ -947,7 +959,8 @@ function applyZcodeProfile(config: AppConfig, profile: ProfileConfig, token: str
     const model = normalizeClientModel(profile.model) || defaultClientModel(config);
     const configResult = writeZcodeGatewayConfig(config, profile, token, {
       backup: true,
-      isManagedContent: (content) => isManagedZcodeConfigContent(content, providerId)
+      isManagedContent: (content) => isManagedZcodeConfigContent(content, providerId),
+      write: isGlobalProfile(profile) ? globalZcodeWriter(configFile, providerId) : undefined
     });
     const middlewareResult = profile.cliMiddleware
       ? writeCodexCliMiddleware(config, profile, {
@@ -982,6 +995,21 @@ function applyZcodeProfile(config: AppConfig, profile: ProfileConfig, token: str
       path: configFile
     };
   }
+}
+
+function globalZcodeWriter(configFile: string, providerId: string): (file: string, content: string) => { backupFile?: string; changed: boolean } {
+  const { cache } = zcodeStorageFiles(configFile);
+  // Read before any file is written: once the apply marks v2/config.json, the user's own cache would pass for LLMR's and get no original.
+  const ownedIds = zcodeOwnedProviderIds(configFile, [providerId]);
+  const cacheWriter = globalManagedJsonWriter(
+    zcodeManagedContent("cache", [providerId], ownedIds),
+    (previous, snapshot) => stripManagedZcodeModelCacheContent(previous, ownedIds, snapshot)
+  );
+  const configWriter = globalManagedJsonWriter(
+    zcodeManagedContent("config", [providerId], ownedIds),
+    (previous, snapshot) => stripManagedZcodeConfigContent(previous, [providerId], snapshot)
+  );
+  return (file, content) => (file === cache ? cacheWriter : configWriter)(file, content);
 }
 
 function profileEntries(config: AppConfig): ProfileConfig[] {
@@ -1560,14 +1588,23 @@ export function globalProviderJsonWriter(profile: ProfileConfig): ((file: string
     return undefined;
   }
   const client: ProviderJsonClient = profile.agent === "kilo" ? "kilo" : "opencode";
+  return globalManagedJsonWriter(
+    providerJsonManagedContent(client),
+    (previous, snapshot) => stripManagedProviderJsonContent(previous, { client }, snapshot)
+  );
+}
+
+function globalManagedJsonWriter(
+  matchers: RestoreManagedContentMatchers,
+  stripPrevious: (previous: string, snapshot: string | undefined) => string | undefined
+): (file: string, content: string) => { backupFile?: string; changed: boolean } {
   return (file, content) => {
-    const matchers = providerJsonManagedContent(client);
     const source = existsSync(file) ? readFileSync(file, "utf8") : undefined;
     const result = writeGlobalManagedConfig(
       file,
       content,
       matchers,
-      (previous, snapshot) => stripManagedProviderJsonContent(previous, { client }, snapshot),
+      stripPrevious,
       (previous) => isAsWritten(readCodexWrittenRecord(file), previous)
     );
     writeConfigRecord(file, source, source !== undefined && matchers.isManagedContent(source));
@@ -2307,7 +2344,17 @@ function writePiWrapper(
 ): { backupFile?: string; changed: boolean; configFile: string; file: string } {
   const binDir = path.join(CONFIGDIR, "bin");
   mkdirSync(binDir, { mode: privateDirMode, recursive: true });
-  const configResult = writePiGatewayConfig(CONFIGDIR, config, profile, token, defaultModel);
+  const providerId = piProviderId(profile);
+  const configResult = writePiGatewayConfig(
+    CONFIGDIR,
+    config,
+    profile,
+    token,
+    defaultModel,
+    isGlobalProfile(profile)
+      ? globalManagedJsonWriter(piManagedContent([providerId]), (previous, snapshot) => stripManagedPiModelsContent(previous, [providerId], snapshot))
+      : undefined
+  );
   const file = piWrapperPath(profile);
   const runtimeFile = path.join(binDir, codexMiddlewareRuntimeFilename());
   const runtimeResult = process.platform === "win32"
@@ -2333,12 +2380,8 @@ function disabledPiStatus(profile: ProfileConfig): ProfileClientApplyStatus {
   if (!isGlobalProfile(profile)) {
     return disabledStatus("pi", piWrapperPath(profile), "Pi profile is disabled.");
   }
-  const providerId = piProviderId(profile);
   const file = piModelsFile(profile);
-  const restoreResult = restoreGlobalConfigFile(file, {
-    isManagedContent: (content) => isManagedPiModelsContent(content, providerId),
-    mode: privateFileMode
-  });
+  const restoreResult = restoreGlobalConfigFile(file, { ...piManagedContent([piProviderId(profile)]), mode: privateFileMode });
   return toleratingMissingBackup(
     disabledRestoreStatus("pi", file, "Pi profile is disabled.", restoreResult, profile.name || profile.id || profile.agent, false),
     restoreResult
@@ -3683,10 +3726,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
       if (!hasTakeoverSnapshot(file)) {
         continue;
       }
-      const restoreResult = restoreGlobalConfigFile(file, {
-        isManagedContent: (content) => providerIds.some((providerId) => isManagedPiModelsContent(content, providerId)),
-        mode: privateFileMode
-      });
+      const restoreResult = restoreGlobalConfigFile(file, { ...piManagedContent(providerIds), mode: privateFileMode });
       if (restoreResult.changed || restoreResult.missingBackup) {
         statuses.push(toleratingMissingBackup(inactiveGlobalCleanupStatus("pi", file, restoreResult), restoreResult));
       }
@@ -3702,18 +3742,9 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
       ...zcodeProfiles.map((profile) => resolveZcodeConfigFile(profile))
     ]);
     for (const configFile of configFiles) {
-      const storageRoot = zcodeHomeFromConfigFile(configFile);
-      for (const file of [
-        configFile,
-        path.join(storageRoot, "v2", "config.json"),
-        path.join(storageRoot, "v2", "bots-model-cache.v2.json")
-      ]) {
-        const restoreResult = restoreGlobalConfigFile(file, {
-          isManagedContent: (content) => providerIds.some((providerId) => isManagedZcodeConfigContent(content, providerId)),
-          mode: privateFileMode
-        });
+      for (const restoreResult of restoreZcodeFiles(configFile, providerIds)) {
         if (restoreResult.changed || restoreResult.missingBackup) {
-          statuses.push(inactiveGlobalCleanupStatus("zcode", file, restoreResult));
+          statuses.push(inactiveGlobalCleanupStatus("zcode", restoreResult.file, restoreResult));
         }
       }
     }
@@ -4002,22 +4033,10 @@ function restoreDisabledZcodeProfile(profile: ProfileConfig, configFile: string)
     return disabledStatus("zcode", configFile, disabledMessage);
   }
 
-  const providerId = sanitizeCodexProviderId(profile.providerId || "") || "llm-router";
-  const storageRoot = zcodeHomeFromConfigFile(configFile);
-  const files = [
-    configFile,
-    path.join(storageRoot, "v2", "config.json"),
-    path.join(storageRoot, "v2", "bots-model-cache.v2.json")
-  ];
-  const results = files.map((file) =>
-    restoreGlobalConfigFile(file, {
-      isManagedContent: (content) => isManagedZcodeConfigContent(content, providerId),
-      mode: privateFileMode
-    })
-  );
+  const results = restoreZcodeFiles(configFile, [sanitizeCodexProviderId(profile.providerId || "") || "llm-router"]);
   const changed = results.some((result) => result.changed);
-  const restored = results.some((result) => result.restored);
   const missingBackup = results.some((result) => result.missingBackup);
+  const shown = results.find((result) => result.changed) ?? results[results.length - 1];
   return {
     backupFile: results.find((result) => result.backupFile)?.backupFile,
     changed,
@@ -4025,14 +4044,36 @@ function restoreDisabledZcodeProfile(profile: ProfileConfig, configFile: string)
     enabled: false,
     message: missingBackup
       ? `${disabledMessage} No original ZCode config backup was found for ${profile.name || profile.id || "this profile"}.`
-      : restored
-        ? changed
-          ? "ZCode config was restored from the LLMR backup because the global profile is disabled."
-          : "ZCode config already matches the LLMR backup; profile is disabled."
-        : disabledMessage,
+      : restoredConfigMessage("zcode", shown) ?? disabledMessage,
     ok: !missingBackup,
     path: resolveUserPath(configFile)
   };
+}
+
+function zcodeStorageFiles(configFile: string): { cache: string; cli: string; v2: string } {
+  const storageRoot = zcodeHomeFromConfigFile(configFile);
+  return {
+    cache: path.join(storageRoot, "v2", "bots-model-cache.v2.json"),
+    cli: configFile,
+    v2: path.join(storageRoot, "v2", "config.json")
+  };
+}
+
+// The cache holds no key, so its entry is LLMR's only while v2/config.json marks that id.
+function zcodeOwnedProviderIds(configFile: string, providerIds: string[]): string[] {
+  const { v2 } = zcodeStorageFiles(configFile);
+  return existsSync(v2) ? zcodeManagedProviderIds(readFileSync(v2, "utf8"), providerIds) : [];
+}
+
+// The cache first, then the file that marks it, so a failure midway leaves the mark for the next run.
+function restoreZcodeFiles(configFile: string, providerIds: string[]): RestoreFileResult[] {
+  const { cache, cli, v2 } = zcodeStorageFiles(configFile);
+  const ownedIds = zcodeOwnedProviderIds(configFile, providerIds);
+  return [
+    restoreGlobalConfigFile(cache, { ...zcodeManagedContent("cache", providerIds, ownedIds), mode: privateFileMode }),
+    restoreGlobalConfigFile(v2, { ...zcodeManagedContent("config", providerIds, ownedIds), mode: privateFileMode }),
+    restoreGlobalConfigFile(cli, { ...zcodeManagedContent("config", providerIds, ownedIds), mode: privateFileMode })
+  ];
 }
 
 function disabledRestoreStatus(
@@ -4064,7 +4105,7 @@ function disabledRestoreStatus(
 
 // A restore asks for no confirmation, so its message says what happened to the file and, when the profile stays disabled, how to undo it. Agents without a stripper keep the older wording.
 function restoredConfigMessage(client: ProfileClientKind, result: Partial<RestoreFileResult>, staysDisabled = false): string | undefined {
-  if (client !== "claude-code" && client !== "opencode" && client !== "kilo" && !isCodexFamily(client)) {
+  if (client !== "claude-code" && client !== "opencode" && client !== "kilo" && client !== "pi" && client !== "zcode" && !isCodexFamily(client)) {
     return undefined;
   }
   const name = codexCompatibleClientName(client);
@@ -4461,6 +4502,35 @@ function providerJsonManagedContent(client: ProviderJsonClient): RestoreManagedC
     stripLiveContent: (content, snapshot) => stripManagedProviderJsonContent(content, { client }, snapshot),
     stripManagedContent: (content) => stripManagedProviderJsonContent(content, { client }),
     unreadableTakeover: (content) => parseJsoncRecord(content) === undefined && /x-llmr-client/i.test(content)
+  };
+}
+
+function piManagedContent(providerIds: string[]): RestoreManagedContentMatchers {
+  return {
+    isEmptyContent: isEmptyPiModelsContent,
+    isManagedContent: (content) => providerIds.some((providerId) => isManagedPiModelsContent(content, providerId)),
+    stripBeforeSnapshot: true,
+    stripLiveContent: (content, snapshot) => stripManagedPiModelsContent(content, providerIds, snapshot),
+    stripManagedContent: (content) => stripManagedPiModelsContent(content, providerIds)
+  };
+}
+
+function zcodeManagedContent(file: "cache" | "config", providerIds: string[], ownedIds: string[]): RestoreManagedContentMatchers {
+  if (file === "cache") {
+    return {
+      isEmptyContent: isEmptyZcodeModelCacheContent,
+      isManagedContent: (content) => ownedIds.some((providerId) => isManagedZcodeConfigContent(content, providerId)),
+      stripBeforeSnapshot: true,
+      stripLiveContent: (content, snapshot) => stripManagedZcodeModelCacheContent(content, ownedIds, snapshot),
+      stripManagedContent: (content) => stripManagedZcodeModelCacheContent(content, ownedIds)
+    };
+  }
+  return {
+    isEmptyContent: isEmptyZcodeConfigContent,
+    isManagedContent: (content) => zcodeManagedProviderIds(content, providerIds).length > 0,
+    stripBeforeSnapshot: true,
+    stripLiveContent: (content, snapshot) => stripManagedZcodeConfigContent(content, providerIds, snapshot),
+    stripManagedContent: (content) => stripManagedZcodeConfigContent(content, providerIds)
   };
 }
 

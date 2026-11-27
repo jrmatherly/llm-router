@@ -1433,7 +1433,8 @@ test("profile service restores between-session ZCode edits after many takeover r
       await applyProfileFixture(config);
     }
     const backups = readdirSync(path.dirname(configFile)).filter((name) => name.startsWith("config.json.llmr-backup-"));
-    assert.equal(backups.length, 6);
+    // Only the first apply over the user's edit backs it up; each later one replaces a file LLMR wrote.
+    assert.equal(backups.length, 1);
 
     config.profile.enabled = true;
     config.profile.profiles = [{ ...profile, enabled: false }];
@@ -1444,6 +1445,112 @@ test("profile service restores between-session ZCode edits after many takeover r
     rmSync(takeoverFile, { force: true });
     rmSync(root, { force: true, recursive: true });
   }
+});
+
+// The profile of the prune test above, on a ZCode home in a temporary folder, applied and restored with a fixed key.
+function withZcodeProfile(run, originals = {}) {
+  return withProviderJsonRoot(async (root) => {
+    const zcodeHome = path.join(root, ".zcode");
+    const files = {
+      cache: path.join(zcodeHome, "v2", "bots-model-cache.v2.json"),
+      cli: path.join(zcodeHome, "cli", "config.json"),
+      v2: path.join(zcodeHome, "v2", "config.json")
+    };
+    for (const [name, content] of Object.entries(originals)) {
+      mkdirSync(path.dirname(files[name]), { recursive: true });
+      writeFileSync(files[name], content);
+    }
+    const profile = {
+      agent: "zcode", configFile: files.cli, enabled: true, env: {}, id: "prune-restore-zcode", model: "Provider/m1",
+      name: "Prune Restore ZCode", providerId: "llm-router", scope: "global", surface: "cli"
+    };
+    const config = createDefaultAppConfig();
+    config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["m1", "m2"], name: "Provider" }];
+    const apply = (changes = {}) => {
+      const next = { ...profile, ...changes };
+      config.profile.enabled = true;
+      config.profile.profiles = [next];
+      return applyProfileRuntimeConfig(config, next, providerJsonKey);
+    };
+    await run({ apply, files, restore: () => apply({ enabled: false }), zcodeHome });
+  });
+}
+
+function addTheme(file) {
+  writeFileSync(file, `${JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), theme: "dark" }, null, 2)}\n`);
+}
+
+const zcodeCliOriginal = `${JSON.stringify({ model: { main: "builtin:zai/glm-5" } }, null, 2)}\n`;
+
+test("a ZCode restore keeps what was added to each of its three files", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withZcodeProfile(async ({ apply, files, restore, zcodeHome }) => {
+    assert.equal(apply().ok, true);
+    for (const file of Object.values(files)) {
+      addTheme(file);
+    }
+    assert.equal(restore().ok, true);
+    for (const file of Object.values(files)) {
+      assert.equal(JSON.parse(readFileSync(file, "utf8")).theme, "dark", file);
+    }
+    assert.equal(JSON.parse(readFileSync(files.cli, "utf8")).model.main, "builtin:zai/glm-5");
+    assert.deepEqual(filesHolding(zcodeHome, providerJsonKey), []);
+  }, { cli: zcodeCliOriginal });
+});
+
+test("a ZCode home LLM Router filled alone is emptied again", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withZcodeProfile(async ({ apply, files, restore, zcodeHome }) => {
+    assert.equal(apply().ok, true);
+    assert.equal(restore().ok, true);
+    for (const file of Object.values(files)) {
+      assert.equal(existsSync(file), false, file);
+    }
+    assert.deepEqual(filesUnder(zcodeHome).filter((file) => file.includes(".llmr-")), []);
+  });
+});
+
+test("ZCode files nobody edited come back byte for byte", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const originals = {
+    cache: `${JSON.stringify({ providers: [{ id: "other" }], revision: 4, updatedAt: 1, version: 2 }, null, 2)}\n`,
+    cli: zcodeCliOriginal,
+    v2: `${JSON.stringify({ provider: { other: { name: "Other" } }, theme: "light" }, null, 2)}\n`
+  };
+  await withZcodeProfile(async ({ apply, files, restore }) => {
+    assert.equal(apply().ok, true);
+    assert.equal(restore().ok, true);
+    for (const [name, file] of Object.entries(files)) {
+      assert.equal(readFileSync(file, "utf8"), originals[name], name);
+    }
+  }, originals);
+});
+
+test("a ZCode config the user deleted during the takeover comes back from its original, with their settings and no key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = `${JSON.stringify({ model: { main: "builtin:zai/glm-5" }, theme: "dark" }, null, 2)}\n`;
+  await withZcodeProfile(async ({ apply, files, restore, zcodeHome }) => {
+    assert.equal(apply().ok, true);
+    assert.equal(apply({ model: "Provider/m2" }).ok, true);
+    rmSync(files.cli);
+    assert.equal(restore().ok, true);
+    assert.equal(readFileSync(files.cli, "utf8"), original);
+    assert.deepEqual(filesHolding(zcodeHome, providerJsonKey), []);
+    assert.deepEqual(safetyCopies(files.cli).filter((copy) => readFileSync(copy, "utf8").includes(providerJsonKey)), []);
+  }, { cli: original });
+});
+
+test("a ZCode config LLM Router created and the user deleted leaves a safety copy of the newest backup that holds their settings", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withZcodeProfile(async ({ apply, files, restore, zcodeHome }) => {
+    assert.equal(apply().ok, true);
+    const applied = readFileSync(files.cli, "utf8");
+    writeFileSync(`${files.cli}.llmr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify({ ...JSON.parse(applied), theme: "dark" }, null, 2)}\n`);
+    writeFileSync(`${files.cli}.llmr-backup-2026-01-02T00-00-00-000Z`, applied);
+    rmSync(files.cli);
+    assert.equal(restore().ok, true);
+    assert.equal(existsSync(files.cli), false);
+    const copies = safetyCopies(files.cli);
+    assert.equal(copies.length, 1);
+    assert.match(readFileSync(copies[0], "utf8"), /"theme": "dark"/);
+    assert.equal(readFileSync(copies[0], "utf8").includes(providerJsonKey), false);
+    assert.deepEqual(filesHolding(zcodeHome, providerJsonKey), []);
+  });
 });
 
 test("ZCode wrapper exports the workspace name under its LLMR_ name", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
@@ -3614,6 +3721,13 @@ test("profile service restores global agent configs on exit", () => {
     };
     const writeManagedCodex = () => writeManaged(codexFile, "# BEGIN LLMR managed profile\nmodel = \"test\"\n# END LLMR managed profile\n");
     const writeManagedOpenCode = (content) => writeManaged(openCodeFile, `${JSON.stringify(content)}\n`);
+    // ZCode's mark is the profile key in its two config files, and the cache entry is LLMR's while v2/config.json carries it.
+    const writeManagedZcode = () => {
+      for (const file of [zcodeFile, zcodeV2File]) {
+        writeManaged(file, `${JSON.stringify({ provider: { "llm-router": { options: { apiKey: "llmr-profile-TEST" } } } })}\n`);
+      }
+      writeManaged(zcodeCacheFile, `${JSON.stringify({ providers: [{ id: "llm-router" }] })}\n`);
+    };
     writeManagedCodex();
     writeManagedOpenCode({
       model: "llm-router/test",
@@ -3623,10 +3737,7 @@ test("profile service restores global agent configs on exit", () => {
         }
       }
     });
-    for (const file of [zcodeFile, zcodeV2File]) {
-      writeFileSync(file, `${JSON.stringify({ provider: { "llm-router": {} } })}\n`);
-    }
-    writeFileSync(zcodeCacheFile, `${JSON.stringify({ providers: [{ id: "llm-router" }] })}\n`);
+    writeManagedZcode();
 
     const statuses = restoreGlobalProfileConfigsOnExit([
       {
@@ -3657,10 +3768,7 @@ test("profile service restores global agent configs on exit", () => {
     writeManagedOpenCode({
       provider: { "llm-router": { options: { headers: { "x-llmr-client": "opencode" } } } }
     });
-    for (const file of [zcodeFile, zcodeV2File]) {
-      writeFileSync(file, `${JSON.stringify({ provider: { "llm-router": {} } })}\n`);
-    }
-    writeFileSync(zcodeCacheFile, `${JSON.stringify({ providers: [{ id: "llm-router" }] })}\n`);
+    writeManagedZcode();
     const inactiveStatuses = restoreInactiveGlobalProfileConfigs([
       {
         agent: "codex", configFile: codexFile, enabled: false, env: {}, id: "codex", model: "test", name: "Codex",
@@ -3869,7 +3977,7 @@ test("a global Pi profile restores the user's models.json on release", () => {
     const profile = globalPiProfile(agentDir);
 
     writePiGatewayConfig(root, createDefaultAppConfig(), profile, "token", "default");
-    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["llm-router"]);
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["my-ollama", "llm-router"]);
     restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
     assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["my-ollama"]);
 
@@ -3912,6 +4020,94 @@ test("the Pi sweep leaves a models.json alone when LLMR never took it over", () 
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
+});
+
+const piKey = "llmr-profile-TEST";
+
+// The fixture of the release test above, applied through the service so the global writer and its record are used.
+async function withAppliedPiProfile(run, { original = true } = {}) {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-pi-takeover-"));
+  try {
+    const agentDir = path.join(root, "pi-agent");
+    const piModels = path.join(agentDir, "models.json");
+    if (original) {
+      mkdirSync(agentDir, { recursive: true });
+      writeFileSync(piModels, `${JSON.stringify({ providers: { "my-ollama": { baseUrl: "http://localhost:11434" } } })}\n`);
+    }
+    const profile = globalPiProfile(agentDir);
+    const apply = (changes = {}) => {
+      const next = { ...profile, ...changes };
+      return applyProfileRuntimeConfig(providerJsonConfig([next]), next, piKey);
+    };
+    await run({ agentDir, apply, piModels, profile });
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+    rmSync(path.join(CONFIGDIR, "agent-config-state"), { force: true, recursive: true });
+  }
+}
+
+function addPiProvider(piModels) {
+  const models = JSON.parse(readFileSync(piModels, "utf8"));
+  writeFileSync(piModels, `${JSON.stringify({ ...models, providers: { ...models.providers, added: { baseUrl: "http://localhost:1" } } }, null, 2)}\n`);
+}
+
+test("a provider added to Pi's models.json during the takeover survives the disable", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedPiProfile(async ({ agentDir, apply, piModels, profile }) => {
+    assert.equal(apply().ok, true);
+    addPiProvider(piModels);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["my-ollama", "added"]);
+    assert.deepEqual(filesHolding(agentDir, piKey), []);
+  });
+});
+
+test("a provider added to Pi's models.json during the takeover survives switching the profile off", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedPiProfile(async ({ agentDir, apply, piModels }) => {
+    assert.equal(apply().ok, true);
+    addPiProvider(piModels);
+    assert.equal(apply({ enabled: false }).ok, true);
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["my-ollama", "added"]);
+    assert.deepEqual(filesHolding(agentDir, piKey), []);
+  });
+});
+
+test("a Pi models.json LLM Router created keeps a provider the user added",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedPiProfile(async ({ agentDir, apply, piModels, profile }) => {
+    assert.equal(apply().ok, true);
+    addPiProvider(piModels);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["added"]);
+    assert.deepEqual(readdirSync(agentDir).filter((entry) => entry.includes(".llmr-")), []);
+  }, { original: false });
+});
+
+test("a Pi models.json the user deleted during the takeover comes back from the backup an apply wrote, with their providers and no key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedPiProfile(async ({ agentDir, apply, piModels, profile }) => {
+    assert.equal(apply().ok, true);
+    addPiProvider(piModels);
+    assert.equal(apply({ model: "Provider/other" }).ok, true);
+    rmSync(piModels);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["my-ollama", "added"]);
+    assert.deepEqual(filesHolding(agentDir, piKey), []);
+    assert.deepEqual(safetyCopies(piModels).filter((copy) => readFileSync(copy, "utf8").includes(piKey)), []);
+  });
+});
+
+test("a Pi models.json LLM Router created and the user deleted leaves a safety copy of their providers", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedPiProfile(async ({ agentDir, apply, piModels, profile }) => {
+    assert.equal(apply().ok, true);
+    const applied = JSON.parse(readFileSync(piModels, "utf8"));
+    writeFileSync(`${piModels}.llmr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify({ providers: { ...applied.providers, "my-ollama": { baseUrl: "http://localhost:11434" } } }, null, 2)}\n`);
+    writeFileSync(`${piModels}.llmr-backup-2026-01-02T00-00-00-000Z`, `${JSON.stringify(applied, null, 2)}\n`);
+    rmSync(piModels);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.deepEqual(readdirSync(agentDir).filter((entry) => entry.startsWith("models.json")), []);
+    const copies = safetyCopies(piModels);
+    assert.equal(copies.length, 1);
+    assert.match(readFileSync(copies[0], "utf8"), /my-ollama/);
+    assert.equal(readFileSync(copies[0], "utf8").includes(piKey), false);
+  }, { original: false });
 });
 
 function globalWorkbuddyProfile(workbuddyHome) {
@@ -3959,7 +4155,7 @@ test("a global Workbuddy profile deletes the models.json it created", () => {
 });
 
 for (const [label, makeProfile, relativeFile, managedContent, sweepWarns] of [
-  ["Pi", (dir) => globalPiProfile(dir), "models.json", `${JSON.stringify({ providers: { "llm-router": { models: [] } } })}\n`, false],
+  ["Pi", (dir) => globalPiProfile(dir), "models.json", `${JSON.stringify({ providers: { "llm-router": { headers: { "x-llmr-client": "pi" }, models: [] } } })}\n`, false],
   ["Workbuddy", (dir) => globalWorkbuddyProfile(dir), "models.json", `${JSON.stringify({ models: [{ apiKey: "${LLMR_PROFILE_API_KEY}", id: "gpt-5-codex" }] })}\n`, true]
 ]) {
   test(`a global ${label} release warns but succeeds when an upgraded models.json has no backup`, () => {
@@ -7906,7 +8102,8 @@ for (const agent of ["codex", "grok", "kilo", "kimi", "opencode", "pi", "workbud
       const applied = await applyProfileFixture(config);
       assert.equal(applied.clients[0].ok, true);
       const holding = (value) => profileFiles().filter((file) => readFileSync(file, "utf8").includes(value)).length;
-      assert.ok(holding("Other/model") > 0);
+      // The inactive-profile sweep of the same save takes a generated ZCode profile's files for global ones and strips them again.
+      assert.ok(agent === "zcode" || holding("Other/model") > 0);
       assert.equal(holding("Claude Code API/"), 0);
     } finally {
       for (const file of profileFiles()) {
