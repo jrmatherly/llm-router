@@ -658,11 +658,27 @@ test("a tier with no cache price keeps the base entry's cache price", async () =
 test("LiteLLM's above-N fields become tiers, ascending", async () => {
   const liteLlm = { "tiered-model": {
     input_cost_per_token: 0.000001, input_cost_per_token_above_200k_tokens: 0.000002, input_cost_per_token_above_272k_tokens: 0.000003,
+    cache_read_input_token_cost: 0.0000001, cache_read_input_token_cost_above_200k_tokens: 0.0000002,
     output_cost_per_token: 0.000004, output_cost_per_token_above_200k_tokens: 0.000006
   } };
   await withPriceCatalogs({ liteLlm }, () => {
     const price = resolveRequestPrice(customConfig, "VM Custom", "tiered-model").price;
     assert.deepEqual(price.tiers.map((tier) => [tier.abovePromptTokens, tier.pricing.inputUsdPerMillionTokens, tier.pricing.outputUsdPerMillionTokens]), [[200000, 2, 6], [272000, 3, 4]]);
+    assert.ok(Math.abs(price.tiers[0].pricing.cacheReadUsdPerMillionTokens - 0.2) < 1e-12, "a tier reads its own cache price");
+    assert.equal(pricingForPrompt(price, 300_000).inputUsdPerMillionTokens, 3, "a prompt over two tiers takes the higher one");
+  });
+});
+
+test("a prompt's size counts its cache writes", () => {
+  assert.equal(promptTokenCount({ cacheWriteTokens: 90_000, inputTokens: 20_000 }), 110_000);
+});
+
+test("tiers listed out of order are stored ascending, and a tier with a size of 0 is left out", async () => {
+  const tier = (size, input) => ({ input, output: 4, tier: { size } });
+  const modelsDev = { lab: { models: { m: { cost: { input: 1, output: 2, tiers: [tier(200000, 3), tier(0, 9), tier(100000, 2)] } } } } };
+  await withPriceCatalogs({ modelsDev }, () => {
+    const price = resolveRequestPrice({ Providers: [{ baseUrl: "https://api.example.com", models: ["m"], name: "Lab" }] }, "Lab", "lab/m").price;
+    assert.deepEqual(price.tiers.map((entry) => [entry.abovePromptTokens, entry.pricing.inputUsdPerMillionTokens]), [[100000, 2], [200000, 3]]);
   });
 });
 
