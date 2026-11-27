@@ -4061,7 +4061,17 @@ test("a provider added to Pi's models.json during the takeover survives the disa
   });
 });
 
-test("a Pi models.json LLM Router created keeps a provider the user added", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("a provider added to Pi's models.json during the takeover survives switching the profile off", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedPiProfile(async ({ agentDir, apply, piModels }) => {
+    assert.equal(apply().ok, true);
+    addPiProvider(piModels);
+    assert.equal(apply({ enabled: false }).ok, true);
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["my-ollama", "added"]);
+    assert.deepEqual(filesHolding(agentDir, piKey), []);
+  });
+});
+
+test("a Pi models.json LLM Router created keeps a provider the user added",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedPiProfile(async ({ agentDir, apply, piModels, profile }) => {
     assert.equal(apply().ok, true);
     addPiProvider(piModels);
