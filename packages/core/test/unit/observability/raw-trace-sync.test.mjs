@@ -27,7 +27,9 @@ test("#1809 raw trace resolves runtime provider aliases and custom pricing", () 
     model: "local-model", provider: `${providerRuntimeId(provider)}::openai_chat_completions`, requestId: "local-alias", statusCode: 200
   });
   assert.equal(policy.update.provider, "Local Ollama");
-  assert.deepEqual(policy.update.pricing, pricing);
+  assert.deepEqual(policy.update.price, { price: { pricing, source: "custom" }, state: "priced" });
+  assert.equal("pricing" in policy.update, false);
+  assert.equal("pricingSource" in policy.update, false);
 });
 
 test("raw trace carries an unpriced outcome for a model the loaded catalog cannot price", async () => {

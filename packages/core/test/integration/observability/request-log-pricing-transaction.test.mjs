@@ -139,9 +139,15 @@ test("RequestLogStore applies persisted custom model pricing to raw trace usage 
       "user-agent": "openai-codex test",
       "x-codex-session-id": "custom-pricing-session"
     };
-    record.pricing = {
-      inputUsdPerMillionTokens: 2,
-      outputUsdPerMillionTokens: 8
+    record.price = {
+      price: {
+        pricing: {
+          inputUsdPerMillionTokens: 2,
+          outputUsdPerMillionTokens: 8
+        },
+        source: "custom"
+      },
+      state: "priced"
     };
     const result = await store.writeBatch([{
       eventId: "custom-pricing-event",
@@ -223,11 +229,17 @@ test("RequestLogStore prices Anthropic 5m and 1h cache writes separately", async
     );
     record.model = "custom-model";
     record.providerName = "custom-provider";
-    record.pricing = {
-      cacheWrite1hUsdPerMillionTokens: 6,
-      cacheWrite5mUsdPerMillionTokens: 3,
-      inputUsdPerMillionTokens: 2,
-      outputUsdPerMillionTokens: 8
+    record.price = {
+      price: {
+        pricing: {
+          cacheWrite1hUsdPerMillionTokens: 6,
+          cacheWrite5mUsdPerMillionTokens: 3,
+          inputUsdPerMillionTokens: 2,
+          outputUsdPerMillionTokens: 8
+        },
+        source: "custom"
+      },
+      state: "priced"
     };
 
     const result = await store.writeBatch([{
@@ -285,7 +297,7 @@ test("a log row stores where its price came from and keeps it through a raw-trac
       },
       {
         eventId: "late-event",
-        input: { ...createRecord("late-request", "{}"), pricing, pricingSource: "litellm" },
+        input: { ...createRecord("late-request", "{}"), price: { price: { pricing, source: "litellm" }, state: "priced" } },
         kind: "record",
         sequence: 3
       }
@@ -400,16 +412,19 @@ test("a row the raw trace itself creates takes the trace's outcome", async () =>
   }
 });
 
-test("a raw trace that prices a row from its stored price writes the source the row lacked", async () => {
+test("a raw trace prices a row from the price stored with it", async () => {
   const { dir, readRow, store } = openStore("llmr-request-log-raw-trace-source-test-");
   try {
     await store.writeBatch([{
       eventId: "stored-price-event",
-      input: { ...createRecord("stored-price-request", "{}"), pricing: { inputUsdPerMillionTokens: 2, outputUsdPerMillionTokens: 8 } },
+      input: {
+        ...createRecord("stored-price-request", "{}"),
+        price: { price: { pricing: { inputUsdPerMillionTokens: 2, outputUsdPerMillionTokens: 8 }, source: "custom" }, state: "priced" }
+      },
       kind: "record",
       sequence: 1
     }]);
-    assert.deepEqual(readRow("stored-price-request"), { cost_source: "", cost_usd: null });
+    assert.deepEqual(readRow("stored-price-request"), { cost_source: "custom", cost_usd: null });
     assert.equal(await store.updateFromRawTrace({ requestId: "stored-price-request", responseBodyText: usageBody }), true);
     assert.deepEqual(readRow("stored-price-request"), { cost_source: "custom", cost_usd: 6 });
   } finally {

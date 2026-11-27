@@ -29,8 +29,6 @@ export type RequestPriceOutcome =
 
 export type RequestPriceInput = {
   price?: RequestPriceOutcome;
-  pricing?: ProviderModelPricing;
-  pricingSource?: UsagePricingSource;
 };
 
 export type UsageCostInput = {
@@ -185,7 +183,7 @@ export function resolveRequestPrice(
   return Array.from(catalog.values()).some((source) => source.failed) ? { state: "no-catalog" } : { state: "unpriced" };
 }
 
-/** A resolved price wins over the legacy pricing fields; "unpriced" forbids a writer's own estimate. */
+/** "unpriced" forbids a writer's own estimate. */
 export function pricingForWrite(input: RequestPriceInput): WritePricing {
   if (input.price?.state === "priced") {
     return { estimate: true, pricing: input.price.price.pricing, pricingSource: input.price.price.source };
@@ -193,7 +191,7 @@ export function pricingForWrite(input: RequestPriceInput): WritePricing {
   if (input.price?.state === "unpriced") {
     return { estimate: false };
   }
-  return { estimate: true, pricing: input.pricing, pricingSource: input.pricingSource };
+  return { estimate: true };
 }
 
 export function parseUsagePricingSource(value: unknown): UsagePricingSource | undefined {

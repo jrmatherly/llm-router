@@ -1553,7 +1553,6 @@ export function applyRawTraceRequestLogPolicy(
     ...input,
     provider: modelRegistryForConfig(config).findProvider(input.provider)?.name ?? input.provider,
     price,
-    ...(price.state === "priced" ? { pricing: price.price.pricing, pricingSource: price.price.source } : {}),
     bodyCapturePolicy,
     // An upstream trace never owns the final request outcome. Even an HTTP 2xx
     // can be followed by a downstream disconnect or response write failure.
