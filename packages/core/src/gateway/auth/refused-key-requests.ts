@@ -1,6 +1,6 @@
 import type { IncomingHttpHeaders } from "node:http";
 import type { RefusedKeyRequest, RefusedKeyRequests } from "@llmr/core/contracts/app";
-import { inferGatewayClient } from "@llmr/core/gateway/http/io";
+import { inferGatewayClient, maxGatewayClientLabelLength } from "@llmr/core/gateway/http/io";
 
 export type RefusedKeyRequestInput = {
   at?: string;
@@ -10,7 +10,6 @@ export type RefusedKeyRequestInput = {
 };
 
 const maxRecentRefusedKeyRequests = 5;
-const maxClientLength = 60;
 const maxRouteLength = 120;
 const maxReasonLength = 120;
 
@@ -70,7 +69,7 @@ export function resetRefusedKeyRequestsForTest(): void {
 function refusedKeyRequestEntry(input: RefusedKeyRequestInput): RefusedKeyRequest {
   return boundedRefusedKeyRequest({
     at: input.at ?? new Date().toISOString(),
-    client: inferGatewayClient(undefined, input.headers) ?? "unknown",
+    client: inferGatewayClient({ kind: "refused" }, input.headers) ?? "unknown",
     reason: input.reason,
     route: input.route
   });
@@ -79,7 +78,7 @@ function refusedKeyRequestEntry(input: RefusedKeyRequestInput): RefusedKeyReques
 function boundedRefusedKeyRequest(entry: RefusedKeyRequest): RefusedKeyRequest {
   return {
     at: String(entry.at).slice(0, 32),
-    client: String(entry.client).slice(0, maxClientLength),
+    client: String(entry.client).slice(0, maxGatewayClientLabelLength),
     reason: String(entry.reason).slice(0, maxReasonLength),
     route: String(entry.route).split(/[?#]/, 1)[0].slice(0, maxRouteLength)
   };

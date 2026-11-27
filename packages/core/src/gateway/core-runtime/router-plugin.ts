@@ -382,6 +382,8 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
       beforeAuth: async (requestInput: GatewayRequestHookInput) => {
         if (publicGatewayMode) {
           stripUntrustedLlmrRouteHeaders(requestInput.request?.headers);
+          delete requestInput.request?.headers?.["x-auth-api-key-id"];
+          delete requestInput.request?.headers?.["x-auth-sub"];
           const authorization = await resolvePublicGatewayAuth(config, requestInput.request?.headers, {
             coreAuthToken,
             publicAuthKeys,

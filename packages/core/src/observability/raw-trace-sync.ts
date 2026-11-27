@@ -5,7 +5,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, open, opendir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { basename, dirname, join, resolve as pathResolve, sep as pathSep } from "node:path";
-import type { AppConfig } from "@llmr/core/contracts/app";
+import type { ApiKeyConfig, AppConfig } from "@llmr/core/contracts/app";
 import { RAW_TRACE_SPOOL_DIR } from "@llmr/core/config/constants";
 import {
   enqueueGatewayRequestLogFromRawTrace,
@@ -21,7 +21,7 @@ import { rawTraceMaxPartBytes, resolveRawTraceBodyLimit } from "@llmr/core/obser
 import { maxRequestLogModelLength } from "@llmr/core/observability/request-log-model";
 import { redactSensitiveUrlQuery } from "@llmr/core/observability/sensitive-headers";
 import { isRecord, numberValue, stringValue } from "@llmr/core/gateway/internal/value";
-import { formatError, inferGatewayClient, parseJsonObject, readHeader, readRequestBody, sendJson, shouldCaptureGatewayUsage } from "@llmr/core/gateway/http/io";
+import { formatError, type GatewayClientCaller, inferGatewayClient, isTrustedForwarderKey, parseJsonObject, readHeader, readRequestBody, sendJson, shouldCaptureGatewayUsage } from "@llmr/core/gateway/http/io";
 import { endpoint } from "@llmr/core/gateway/core-runtime/supervisor";
 import { maxUsageCaptureBytes, rawTraceSyncHeader, rawTraceSyncPath } from "@llmr/core/gateway/internal/shared";
 import type { RawTracePartText } from "@llmr/core/gateway/internal/shared";
@@ -424,7 +424,7 @@ export class RawTraceSynchronizer {
       if (stored.inspectionError) {
         throw new Error(stored.inspectionError);
       }
-      const bundle = await readRawTraceRequestLogBundle(stored.manifest, this.spoolDirectory());
+      const bundle = await readRawTraceRequestLogBundle(stored.manifest, this.spoolDirectory(), config.APIKEYS);
       if (!bundle) {
         await this.deadLetterStoredBundle(stored, "invalid_manifest");
         this.retryStates.delete(stored.bundleId);
@@ -1676,7 +1676,8 @@ function rawTraceDisabledFromEnv(): boolean {
 
 export async function readRawTraceRequestLogBundle(
   manifest: Record<string, unknown>,
-  spoolDirectory = RAW_TRACE_SPOOL_DIR
+  spoolDirectory = RAW_TRACE_SPOOL_DIR,
+  apiKeys: readonly ApiKeyConfig[] = []
 ): Promise<RawTraceRequestLogBundle | undefined> {
   const requestId = stringValue(manifest.turnKey) || stringValue(manifest.requestId);
   const bundleId = stringValue(manifest.requestId);
@@ -1716,7 +1717,11 @@ export async function readRawTraceRequestLogBundle(
   const url = rawUrl ? redactSensitiveUrlQuery(rawUrl) : undefined;
   const clientRequestHeaders = headerRecordFromUnknown(clientRequestMetadata?.headers);
   const upstreamRequestHeaders = headerRecordFromUnknown(upstreamRequestMetadata?.headers);
-  const client = inferGatewayClient(undefined, clientRequestHeaders ?? {});
+  const apiKeyId = readHeader(clientRequestHeaders?.["x-auth-sub"]);
+  const caller: GatewayClientCaller = apiKeyId
+    ? { kind: "key", trustedForwarder: isTrustedForwarderKey(apiKeys.find((apiKey) => apiKey.id === apiKeyId)) }
+    : { kind: "refused" };
+  const client = inferGatewayClient(caller, clientRequestHeaders ?? {});
   const attempt = positiveAttemptNumber(readUnknownHeader(
     clientRequestHeaders,
     "x-llmr-route-attempt"

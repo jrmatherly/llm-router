@@ -4,7 +4,9 @@ import {
   abortSignalMessage,
   filteredResponseHeaders,
   forwardHeaders,
+  gatewayClientCallerForKey,
   inferGatewayClient,
+  isTrustedForwarderKey,
   omitLocalObservabilityHeaders,
   parseJsonObject,
   readAuthToken,
@@ -24,18 +26,21 @@ import {
   takeJsonObject
 } from "@llmr/core/gateway/http/body.ts";
 
+const refused = { kind: "refused" };
+const plain = { kind: "key", name: "Team key", trustedForwarder: false };
+const forwarder = { kind: "key", name: "Apps gateway key", trustedForwarder: true };
+
 test("gateway client inference honors explicit, proxy, API-key, and user-agent identity", () => {
-  assert.equal(inferGatewayClient(undefined, { "x-llmr-client": "  Desktop App  " }), "Desktop App");
-  assert.equal(inferGatewayClient({ id: "key-id", name: "Team key" }, { "user-agent": "codex-cli/1.0" }), "Team key");
-  assert.equal(
-    inferGatewayClient(
-      { id: "key-id", name: "Team key" },
-      { "user-agent": "codex-cli/1.0", "x-llmr-proxy-mode": "gateway" }
-    ),
-    "Codex"
-  );
-  assert.equal(inferGatewayClient(undefined, { "user-agent": "curl/8.0" }), "curl");
-  assert.equal(inferGatewayClient(undefined, { "user-agent": "custom-client/2.1" }), "custom-client");
+  assert.equal(inferGatewayClient(plain, { "x-llmr-client": "  Desktop App  " }), "Desktop App");
+  assert.equal(inferGatewayClient(plain, { "x-client-name": "codex-cli" }), "codex-cli");
+  assert.equal(inferGatewayClient(plain, { "user-agent": "codex-cli/1.0" }), "Team key");
+  assert.equal(inferGatewayClient(plain, { "user-agent": "codex-cli/1.0", "x-llmr-proxy-mode": "gateway" }), "Codex");
+  assert.equal(inferGatewayClient({ kind: "key", trustedForwarder: false }, { "user-agent": "curl/8.0" }), "curl");
+  assert.equal(inferGatewayClient(plain, { "x-forwarded-client-cert": "By=spiffe://a;Hash=b" }), "Team key");
+  assert.deepEqual(gatewayClientCallerForKey({ id: "key-id", name: " Team key " }), plain);
+  assert.deepEqual(gatewayClientCallerForKey({ id: "key-id", trustedForwarder: true }), { kind: "key", name: "key-id", trustedForwarder: true });
+  assert.deepEqual(gatewayClientCallerForKey({ id: "profile:codex", trustedForwarder: true }), { kind: "key", name: "profile:codex", trustedForwarder: false });
+  assert.equal(isTrustedForwarderKey(undefined), false);
 });
 
 test("gateway authentication accepts supported headers and scopes query tokens to remote control", () => {
@@ -170,10 +175,24 @@ test("gateway method and abort helpers cover body and cancellation edge cases", 
   assert.equal(abortSignalMessage(textController.signal), "timed out");
 });
 
-test("inferGatewayClient names the developer a Claude apps gateway forwards", () => {
-  assert.equal(inferGatewayClient({ id: "gw", name: "Apps gateway key" }, { "x-claude-gateway-user-email": " dev@example.com ", "user-agent": "claude-cli/2.1.310" }), "dev@example.com");
-  assert.equal(inferGatewayClient({ id: "gw", name: "Apps gateway key" }, { "x-litellm-end-user-id": "dev@example.com" }), "dev@example.com");
-  assert.equal(inferGatewayClient(undefined, { "x-llmr-client": "Proxy", "x-claude-gateway-user-email": "dev@example.com" }), "Proxy");
-  assert.equal(inferGatewayClient({ id: "gw", name: "Apps gateway key" }, { "x-claude-gateway-user-email": "   " }), "Apps gateway key");
-  assert.equal(inferGatewayClient({ id: "gw", name: "Apps gateway key" }, { "x-claude-gateway-user-id": "sub-123" }), "Apps gateway key");
+test("inferGatewayClient names the developer only for a trusted forwarder key", () => {
+  const identity = { "x-claude-gateway-user-email": " dev@example.com ", "user-agent": "claude-cli/2.1.310" };
+  assert.equal(inferGatewayClient(forwarder, identity), "dev@example.com");
+  assert.equal(inferGatewayClient(forwarder, { "x-litellm-end-user-id": "dev@example.com" }), "dev@example.com");
+  assert.equal(inferGatewayClient(forwarder, { "x-llmr-client": "Proxy", "x-claude-gateway-user-email": "dev@example.com" }), "Proxy");
+  assert.equal(inferGatewayClient(forwarder, { "x-claude-gateway-user-email": "   " }), "Apps gateway key");
+  assert.equal(inferGatewayClient(forwarder, { "x-claude-gateway-user-id": "sub-123" }), "Apps gateway key");
+  assert.equal(inferGatewayClient(plain, identity), "Team key");
+  assert.equal(inferGatewayClient(plain, { "x-litellm-end-user-id": "dev@example.com", "user-agent": "curl/8.0" }), "Team key");
+  assert.equal(inferGatewayClient(refused, identity), "Claude");
+});
+
+test("a refused caller is named from its User-Agent alone, and every label is cut to 120 characters", () => {
+  assert.equal(inferGatewayClient(refused, { "x-llmr-client": "Cursor", "x-client-name": "Cursor", "user-agent": "curl/8.0" }), "curl");
+  assert.equal(inferGatewayClient(refused, { "x-llmr-client": "Cursor" }), undefined);
+  assert.equal(inferGatewayClient(refused, { "user-agent": "custom-client/2.1" }), "custom-client");
+  assert.equal(inferGatewayClient(refused, { "user-agent": "u".repeat(300) }), "u".repeat(120));
+  assert.equal(inferGatewayClient(plain, { "x-llmr-client": "c".repeat(300) }), "c".repeat(120));
+  assert.equal(inferGatewayClient({ kind: "key", name: "n".repeat(300), trustedForwarder: false }, {}), "n".repeat(120));
+  assert.equal(inferGatewayClient(forwarder, { "x-claude-gateway-user-email": `${"a".repeat(300)}@example.com` }).length, 120);
 });

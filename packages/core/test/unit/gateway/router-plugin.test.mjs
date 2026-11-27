@@ -1120,6 +1120,26 @@ test("LLMR router core plugin allows internal core auth tokens before public gat
   assert.equal(headers["x-auth-sub"], undefined);
 });
 
+test("a request that passes with the core token loses the key id headers it sent", async () => {
+  const config = createDefaultAppConfig();
+  config.APIKEY = "client-key";
+  config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "client", key: "client-key" }];
+  const sent = () => ({ authorization: "Bearer core-token", "x-auth-api-key-id": "client", "x-auth-sub": "client" });
+
+  const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config, coreAuthToken: "core-token", publicGatewayMode: true } } });
+  const headers = sent();
+  const result = await plugin.requestHooks[0].beforeAuth({ request: { headers, method: "GET", url: "/v1/models" } });
+  assert.equal(result, undefined);
+  assert.equal(headers["x-auth-api-key-id"], undefined);
+  assert.equal(headers["x-auth-sub"], undefined);
+
+  const compatPlugin = await createGatewayPlugin({ plugin: { config: { appConfig: config, coreAuthToken: "core-token", publicGatewayMode: false } } });
+  const compatHeaders = sent();
+  await compatPlugin.requestHooks[0].beforeAuth({ request: { headers: compatHeaders, method: "GET", url: "/v1/models" } });
+  assert.equal(compatHeaders["x-auth-api-key-id"], "client");
+  assert.equal(compatHeaders["x-auth-sub"], "client");
+});
+
 test("LLMR router core plugin serves remote control capabilities with query auth", async () => {
   const config = createDefaultAppConfig();
   config.APIKEY = "client-key";

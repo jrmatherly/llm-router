@@ -34,7 +34,7 @@ import { codexMultiAgentBridgeResponseStream, prepareCodexMultiAgentBridgeReques
 import { rewriteAnthropicMessageStartModelStream, shouldRewriteAnthropicMessageStartModel } from "@llmr/core/gateway/features/anthropic-response-model";
 import { claudeLoginCarriedValue, claudeLoginPassThroughTarget } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { prepareCursorOpenAICompatChatBody } from "@llmr/core/gateway/features/cursor-compat";
-import { filteredResponseHeaders, formatError, formatUpstreamErrorForLog, forwardHeaders, inferGatewayClient, readRequestBody, sendJson, shouldCaptureGatewayUsage, shouldSendBody, stripLocalGatewayAuthHeaders } from "@llmr/core/gateway/http/io";
+import { filteredResponseHeaders, formatError, formatUpstreamErrorForLog, forwardHeaders, gatewayClientCallerForKey, inferGatewayClient, readRequestBody, sendJson, shouldCaptureGatewayUsage, shouldSendBody, stripLocalGatewayAuthHeaders } from "@llmr/core/gateway/http/io";
 import { appendAggregateErrorAttemptSummary, shouldBufferAggregateErrorBody } from "@llmr/core/gateway/http/error-detail";
 import { parseJsonObjectSafe, serializeJsonBody, takeJsonObject } from "@llmr/core/gateway/http/body";
 import { createGatewayModelsResponse, prepareClaudeAppDiscoveredModelRequest, prepareClaudeCodeDiscoveredModelRequest, shouldServeGatewayModelsResponse } from "@llmr/core/gateway/features/model-discovery";
@@ -192,7 +192,7 @@ export class GatewayRequestPipeline {
         phase: "ingress",
         startedAtMs: headerNormalizationStartedAt
       });
-      const client = inferGatewayClient(apiKey, request.headers);
+      const client = inferGatewayClient(apiKey ? gatewayClientCallerForKey(apiKey) : { kind: "refused" }, request.headers);
       const cursorCompatStartedAt = Date.now();
       const cursorCompatPreparation = claudeLoginTarget ? undefined : prepareCursorOpenAICompatChatBody(this.config, client, method, path, requestBody);
       if (cursorCompatPreparation) {

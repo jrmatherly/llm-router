@@ -1818,7 +1818,7 @@ function standaloneRecordInputFromRawTrace(
   const durationMs = normalizeCount(input.durationMs);
   const startedAt = normalizeFilterValue(input.startedAt) ??
     startedAtFromCompletedAt(completedAt, durationMs);
-  const client = normalizeFilterValue(input.client) ?? inferGatewayClient(undefined, requestHeaders);
+  const client = normalizeFilterValue(input.client) ?? inferGatewayClient({ kind: "refused" }, requestHeaders);
 
   return {
     bodyCapturePolicy,

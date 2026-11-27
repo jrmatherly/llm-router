@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { inferGatewayClient } from "@llmr/core/gateway/http/io.ts";
+import { isSensitiveRequestLogHeaderName } from "@llmr/core/observability/sensitive-headers.ts";
 import {
   createGatewayPlugin,
   rewriteUpstreamProviderUrl,
@@ -364,5 +365,7 @@ test("Claude apps gateway identity headers are attributed at ingress and never r
   }
   assert.deepEqual(sanitizeUpstreamProviderHeaders({ ...identity, "x-keep": "yes" }), { "x-keep": "yes" });
   assert.deepEqual(sanitizeUpstreamProviderHeaders({ "X-Claude-Gateway-User-Email": "a@b", " X-LiteLLM-End-User-Id ": "a@b", "x-keep": "yes" }), { "x-keep": "yes" });
-  assert.equal(inferGatewayClient(undefined, request.headers), "kilgore@kilgore.trout");
+  assert.equal(inferGatewayClient({ kind: "key", trustedForwarder: true }, request.headers), "kilgore@kilgore.trout");
+  assert.equal(inferGatewayClient({ kind: "refused" }, request.headers), "Claude");
+  for (const name of Object.keys(identity)) assert.equal(isSensitiveRequestLogHeaderName(name), true, name);
 });

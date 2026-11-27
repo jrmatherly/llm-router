@@ -5,23 +5,49 @@ import type { IncomingHttpHeaders, IncomingMessage, Server, ServerResponse } fro
 import { homedir } from "node:os";
 import type { ApiKeyConfig } from "@llmr/core/contracts/app";
 import { llmrRemoteControlPathPrefix } from "@llmr/core/gateway/remote-control-service";
-import { coreGatewayAuthHeader, localObservabilityHeaderNames, proxyHeaderDenyList, responseHeaderDenyList, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
+import { clientDisplayNameHeaderNames, coreGatewayAuthHeader, localObservabilityHeaderNames, proxyHeaderDenyList, responseHeaderDenyList, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
+import { profileIdFromApiKeyId } from "@llmr/core/profiles/api-key";
 
+export const maxGatewayClientLabelLength = 120;
 
-const clientNameHeaders = ["x-llmr-client", "x-client-name", "x-forwarded-client-cert", "x-claude-gateway-user-email", "x-litellm-end-user-id"];
+export type GatewayClientCaller =
+  | { kind: "refused" }
+  | { kind: "key"; name?: string; trustedForwarder: boolean };
 
-export function inferGatewayClient(apiKey: ApiKeyConfig | undefined, headers: IncomingHttpHeaders): string | undefined {
-  const explicit = clientNameHeaders.map((name) => readHeader(headers[name])).find(Boolean);
+const clientLabelHeaderSources: ReadonlyArray<{ names: readonly string[]; when: "key" | "trustedForwarder" }> = [
+  { names: clientDisplayNameHeaderNames, when: "key" },
+  { names: ["x-claude-gateway-user-email", "x-litellm-end-user-id"], when: "trustedForwarder" }
+];
+
+export function isTrustedForwarderKey(apiKey: Pick<ApiKeyConfig, "id" | "trustedForwarder"> | undefined): boolean {
+  return apiKey?.trustedForwarder === true && profileIdFromApiKeyId(apiKey.id) === undefined;
+}
+
+export function gatewayClientCallerForKey(apiKey: Pick<ApiKeyConfig, "id" | "name" | "trustedForwarder">): GatewayClientCaller {
+  return { kind: "key", name: apiKey.name?.trim() || apiKey.id?.trim(), trustedForwarder: isTrustedForwarderKey(apiKey) };
+}
+
+export function inferGatewayClient(caller: GatewayClientCaller, headers: IncomingHttpHeaders): string | undefined {
+  return gatewayClientLabel(caller, headers)?.slice(0, maxGatewayClientLabelLength);
+}
+
+function gatewayClientLabel(caller: GatewayClientCaller, headers: IncomingHttpHeaders): string | undefined {
+  const userAgentClient = inferClientFromUserAgent(headers);
+  if (caller.kind === "refused") {
+    return userAgentClient;
+  }
+  const explicit = clientLabelHeaderSources
+    .filter((source) => source.when === "key" || caller.trustedForwarder)
+    .flatMap((source) => source.names)
+    .map((name) => readHeader(headers[name]))
+    .find(Boolean);
   if (explicit) {
     return explicit;
   }
-
-  const apiKeyClient = apiKey?.name?.trim() || apiKey?.id?.trim();
-  const userAgentClient = inferClientFromUserAgent(headers);
   if (readHeader(headers["x-llmr-proxy-mode"]) === "gateway") {
-    return userAgentClient ?? apiKeyClient;
+    return userAgentClient ?? caller.name;
   }
-  return apiKeyClient ?? userAgentClient;
+  return caller.name ?? userAgentClient;
 }
 
 

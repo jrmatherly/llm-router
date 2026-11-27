@@ -195,7 +195,7 @@ test("raw trace bundle preserves manifest lifecycle metadata", async () => {
   const startedAt = "2026-08-26T01:02:03.004Z";
   const completedAt = "2026-08-26T01:02:04.238Z";
   mkdirSync(bundleDirectory, { recursive: true });
-  writeFileSync(clientMetadataFile, JSON.stringify({ headers: { "x-llmr-client": "opencode" } }));
+  writeFileSync(clientMetadataFile, JSON.stringify({ headers: { "x-auth-sub": "wire", "x-llmr-client": "opencode" } }));
   writeFileSync(bodyFile, "{}");
   try {
     const bundle = await readRawTraceRequestLogBundle({
@@ -223,6 +223,40 @@ test("raw trace bundle preserves manifest lifecycle metadata", async () => {
     assert.equal(bundle.update.completedAt, completedAt);
     assert.equal(bundle.update.durationMs, 1234);
     assert.equal(bundle.update.bundleCapturedAt, completedAt);
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a trace names the developer only when its key is a trusted forwarder", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-forwarder-test-"));
+  const spoolDirectory = path.join(dir, "spool");
+  const bundleDirectory = path.join(spoolDirectory, "producer-bundle");
+  const clientMetadataFile = path.join(bundleDirectory, "client_request_metadata.json");
+  const bodyFile = path.join(bundleDirectory, "upstream_request.json");
+  mkdirSync(bundleDirectory, { recursive: true });
+  writeFileSync(bodyFile, "{}");
+  const headers = { "user-agent": "claude-cli/2.1.310", "x-auth-sub": "gw", "x-auth-api-key-id": "***", "x-claude-gateway-user-email": "dev@example.com" };
+  const manifest = {
+    parts: [
+      { filePath: clientMetadataFile, partType: "client_request_metadata" },
+      { contentType: "application/json", filePath: bodyFile, originalBytes: 2, partType: "upstream_request" }
+    ],
+    requestId: "core-bundle-forwarder",
+    turnKey: "logical-forwarder-request"
+  };
+  const key = (id, trustedForwarder) => ({ createdAt: new Date(0).toISOString(), id, key: `${id}-token`, ...(trustedForwarder ? { trustedForwarder } : {}) });
+  const clientFor = async (clientHeaders, apiKeys) => {
+    writeFileSync(clientMetadataFile, JSON.stringify({ headers: clientHeaders }));
+    return (await readRawTraceRequestLogBundle(manifest, spoolDirectory, apiKeys)).update.client;
+  };
+  try {
+    assert.equal(await clientFor(headers, [key("gw", true)]), "dev@example.com");
+    assert.equal(await clientFor(headers, [key("gw", false)]), "Claude");
+    assert.equal(await clientFor(headers, []), "Claude");
+    assert.equal(await clientFor({ ...headers, "x-auth-sub": "profile:codex" }, [key("profile:codex", true)]), "Claude");
+    const { "x-auth-sub": _sub, ...withoutKey } = headers;
+    assert.equal(await clientFor({ ...withoutKey, "x-llmr-client": "Spoof" }, [key("gw", true)]), "Claude");
   } finally {
     rmSync(dir, { force: true, recursive: true });
   }
@@ -1519,7 +1553,7 @@ test("raw trace usage capture keeps the client label the request log gets", asyn
   const model = `stub-model-${Date.now()}`;
   const responseBody = JSON.stringify({ model, usage: { input_tokens: 11, output_tokens: 7 } });
   mkdirSync(bundleDirectory, { recursive: true });
-  writeFileSync(clientMetadataFile, JSON.stringify({ headers: { "x-claude-gateway-user-email": "dev@example.com" } }));
+  writeFileSync(clientMetadataFile, JSON.stringify({ headers: { "x-auth-sub": "gw", "x-claude-gateway-user-email": "dev@example.com" } }));
   writeFileSync(responseMetadataFile, JSON.stringify({ headers: { "content-type": "application/json" }, statusCode: 200 }));
   writeFileSync(responseFile, responseBody);
   const requestId = `usage-client-${Date.now()}`;
@@ -1534,7 +1568,7 @@ test("raw trace usage capture keeps the client label the request log gets", asyn
       enqueued = input;
       return true;
     },
-    getConfig: createConfig,
+    getConfig: () => ({ ...createConfig(), APIKEYS: [{ createdAt: new Date(0).toISOString(), id: "gw", key: "gw-token", trustedForwarder: true }] }),
     spoolDirectory
   });
   try {

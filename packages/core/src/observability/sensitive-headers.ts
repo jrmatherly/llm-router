@@ -8,7 +8,10 @@ export const sensitiveRequestLogHeaderNames: ReadonlySet<string> = new Set([
   "x-api-key",
   "x-auth-api-key-id",
   "x-auth-sub",
-  "x-goog-api-key"
+  "x-claude-gateway-user-email",
+  "x-claude-gateway-user-id",
+  "x-goog-api-key",
+  "x-litellm-end-user-id"
 ]);
 
 // Provider plugins may use arbitrary authentication header names. Match
