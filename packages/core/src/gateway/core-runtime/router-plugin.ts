@@ -3,7 +3,10 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { pipeline, Readable } from "node:stream";
 import type { ApiKeyConfig, AppConfig, GatewayProviderConfig, GatewayProviderProtocol, ProfileConfig, RouterRule } from "@llmr/core/contracts/app";
 import {
+  apiKeyRefusalReasons,
+  checkApiKeyToken,
   claudeCodeWifTokenPath,
+  configuredApiKeys,
   exchangeClaudeCodeWifToken,
   resolveApiKeyFromHeaders
 } from "@llmr/core/gateway/auth/api-key-authorizer";
@@ -388,7 +391,7 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
           if (!authorization.ok || !readAuthToken(requestInput.request?.headers)) {
             sharedRefusedKeyRequestPublisher.record({
               headers: requestInput.request?.headers ?? {},
-              reason: authorization.ok ? "API key is missing." : authorization.error,
+              reason: authorization.ok ? apiKeyRefusalReasons.missing : authorization.error,
               route: refusedKeyRequestRoute(requestInput)
             });
           }
@@ -1101,17 +1104,17 @@ async function resolvePublicGatewayAuth(
   const token = readAuthToken(headers) ?? readRemoteControlQueryAuthToken(options.url);
   if (!token) {
     return options.rejectMissing
-      ? { ok: false, status: 401, error: "API key is missing." }
+      ? { ok: false, status: 401, error: apiKeyRefusalReasons.missing }
       : { ok: true };
   }
   if (isStaticBypassToken(token, options.coreAuthToken, options.publicAuthKeys ?? [])) {
     return { ok: true };
   }
 
-  const apiKey = await resolveApiKey(config, authHeadersForToken(headers, token));
-  return apiKey
-    ? { ok: true, apiKey }
-    : { ok: false, status: 401, error: "Invalid or expired API key." };
+  const check = checkApiKeyToken(await configuredApiKeys(config, { includePersisted: false }), token);
+  return check.ok
+    ? { ok: true, apiKey: check.apiKey }
+    : { ok: false, status: 401, error: check.reason };
 }
 
 function setApiKeyAuthContextHeaders(headers: Record<string, HeaderValue> | undefined, apiKey: ApiKeyConfig | undefined): void {
@@ -1514,16 +1517,6 @@ function readRemoteControlQueryAuthToken(url: string | undefined): string | unde
   } catch {
     return undefined;
   }
-}
-
-function authHeadersForToken(
-  headers: Record<string, HeaderValue> | undefined,
-  token: string
-): Record<string, HeaderValue> {
-  return {
-    ...(headers ?? {}),
-    authorization: `Bearer ${token}`
-  };
 }
 
 function isStaticBypassToken(token: string, coreAuthToken: string | undefined, publicAuthKeys: readonly string[]): boolean {

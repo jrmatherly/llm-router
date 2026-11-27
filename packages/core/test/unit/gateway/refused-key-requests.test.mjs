@@ -57,7 +57,7 @@ test("a child's counts add to the parent's across a child restart", () => {
 test("a separate refused key log does not share the parent's state", () => {
   resetRefusedKeyRequestsForTest();
   const log = createRefusedKeyRequestLog();
-  log.record({ headers: {}, reason: "Invalid or expired API key.", route: "/v1/messages" });
+  log.record({ headers: {}, reason: "Invalid API key.", route: "/v1/messages" });
   assert.equal(log.snapshot().count, 1);
   assert.equal(refusedKeyRequests().count, 0);
 });
@@ -116,5 +116,5 @@ test("a route's fragment is dropped", () => {
 });
 
 function childEntry(at) {
-  return { at, client: "Codex", reason: "Invalid or expired API key.", route: "/v1/responses" };
+  return { at, client: "Codex", reason: "Invalid API key.", route: "/v1/responses" };
 }

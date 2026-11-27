@@ -709,19 +709,21 @@ function RefusedKeyRequestsNotice({ refused }: { refused: RefusedKeyRequests }) 
   const subject = refused.count === 1 ? "1 request was" : `${refused.count} requests were`;
   return (
     <div className="network-notice mb-3 min-w-0 shrink-0 rounded-lg border px-3 py-2 text-[12px]">
-      <div className="font-semibold text-foreground" role="status">
-        {subject} refused for a missing, wrong or expired API key since LLM Router started.
-      </div>
-      <ul className="mt-1.5 grid gap-1 text-[11px] text-muted-foreground">
-        {refused.recent.map((entry, index) => (
-          <li className="flex min-w-0 flex-wrap gap-x-3" key={`${entry.at}-${index}`}>
-            <span className="font-mono">{formatLogDateTime(entry.at)}</span>
-            <span className="min-w-0 max-w-full truncate">{entry.client}</span>
-            <span className="min-w-0 max-w-full truncate font-mono">{entry.route}</span>
-            <span>{entry.reason}</span>
-          </li>
-        ))}
-      </ul>
+      <details>
+        <summary className="cursor-pointer font-semibold text-foreground">
+          <span role="status">{subject} refused for a missing, wrong or expired API key since LLM Router started.</span>
+        </summary>
+        <ul className="mt-1.5 grid gap-1 text-[11px] text-muted-foreground">
+          {refused.recent.map((entry, index) => (
+            <li className="flex min-w-0 flex-wrap gap-x-3" key={`${entry.at}-${index}`}>
+              <span className="font-mono">{formatLogDateTime(entry.at)}</span>
+              <span className="min-w-0 max-w-full truncate">{entry.client}</span>
+              <span className="min-w-0 max-w-full truncate font-mono">{entry.route}</span>
+              <span>{entry.reason}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
     </div>
   );
 }

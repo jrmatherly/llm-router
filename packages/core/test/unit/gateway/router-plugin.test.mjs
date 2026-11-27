@@ -763,7 +763,8 @@ test("LLMR router core plugin maps SDK-compatible public API key headers before 
   }
 });
 
-test("LLMR router core plugin rejects expired public API keys before gateway static auth", async () => {
+test("LLMR router core plugin rejects expired public API keys before gateway static auth", async (t) => {
+  resetRefusedKeyRequestPublisherForTest();
   const config = createDefaultAppConfig();
   config.APIKEY = "expired-key";
   config.APIKEYS = [{
@@ -772,6 +773,17 @@ test("LLMR router core plugin rejects expired public API keys before gateway sta
     id: "expired",
     key: "expired-key"
   }];
+  const originalSend = process.send;
+  const messages = [];
+  process.send = (message) => {
+    if (message?.type === llmrRefusedKeyRequestsMessageType) messages.push(message);
+    return true;
+  };
+  t.after(() => {
+    resetRefusedKeyRequestPublisherForTest();
+    if (originalSend) process.send = originalSend;
+    else delete process.send;
+  });
 
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config, coreAuthToken: "core-token", publicGatewayMode: true } } });
   const headers = { authorization: "Bearer expired-key" };
@@ -780,10 +792,12 @@ test("LLMR router core plugin rejects expired public API keys before gateway sta
   assert.deepEqual(result, {
     ok: false,
     status: 401,
-    error: "Invalid or expired API key."
+    error: "API key is expired."
   });
   assert.equal(headers["x-auth-api-key-id"], undefined);
   assert.equal(headers["x-auth-sub"], undefined);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].recent[0].reason, "API key is expired.");
 });
 
 test("a wrong public API key sends one refused-key count to the parent without the key", async (t) => {
@@ -793,7 +807,7 @@ test("a wrong public API key sends one refused-key count to the parent without t
   assert.equal(messages.length, 1);
   assert.equal(messages[0].count, 1);
   assert.equal(messages[0].protocolVersion, 1);
-  assert.equal(messages[0].recent[0].reason, "Invalid or expired API key.");
+  assert.equal(messages[0].recent[0].reason, "Invalid API key.");
   assert.equal(messages[0].recent[0].route, "/v1/chat/completions");
   assert.doesNotMatch(JSON.stringify(messages), /WRONG-SECRET-KEY/);
 });

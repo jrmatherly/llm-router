@@ -224,7 +224,7 @@ function refusedKeyMessage(count, times) {
   return {
     count,
     protocolVersion: 1,
-    recent: times.map((at) => ({ at, client: "Codex", reason: "Invalid or expired API key.", route: "/v1/responses" })),
+    recent: times.map((at) => ({ at, client: "Codex", reason: "Invalid API key.", route: "/v1/responses" })),
     type: llmrRefusedKeyRequestsMessageType
   };
 }

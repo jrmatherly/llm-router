@@ -3,8 +3,17 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
-import { authorize, exchangeClaudeCodeWifToken } from "@llmr/core/gateway/auth/api-key-authorizer.ts";
+import { authorize, checkApiKeyToken, exchangeClaudeCodeWifToken } from "@llmr/core/gateway/auth/api-key-authorizer.ts";
 import { refusedKeyRequests, resetRefusedKeyRequestsForTest } from "@llmr/core/gateway/auth/refused-key-requests.ts";
+
+test("checkApiKeyToken tells a missing, a wrong and an expired key apart", () => {
+  const live = { createdAt: new Date(0).toISOString(), id: "live", key: "live-key" };
+  const old = { createdAt: new Date(0).toISOString(), expiresAt: "2020-01-02T00:00:00.000Z", id: "old", key: "old-key" };
+  assert.deepEqual(checkApiKeyToken([live, old], "live-key"), { apiKey: live, ok: true });
+  assert.deepEqual(checkApiKeyToken([live, old], undefined), { ok: false, reason: "API key is missing." });
+  assert.deepEqual(checkApiKeyToken([live, old], "nope"), { ok: false, reason: "Invalid API key." });
+  assert.deepEqual(checkApiKeyToken([live, old], "old-key"), { ok: false, reason: "API key is expired." });
+});
 
 const authorizerSourceFile = path.join(
   process.cwd(),
