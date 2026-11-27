@@ -5909,6 +5909,22 @@ for (const [name, profile] of [
   });
 }
 
+test("switching off an OpenCode profile whose config the user broke after taking LLM Router's provider out reports no failure and releases the key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonRoot(async (root) => {
+    const file = path.join(root, "opencode.jsonc");
+    const profile = providerJsonProfile("opencode", file);
+    const config = providerJsonConfig([profile]);
+    await applyProfileConfig(config);
+    const broken = "{\n  \"theme\": \"dark\",,\n}\n";
+    writeFileSync(file, broken);
+    config.profile.profiles = [{ ...profile, enabled: false }];
+    const result = await applyProfileConfig(config);
+    assert.deepEqual(result.clients.filter((status) => !status.ok).map((status) => status.message), []);
+    assert.equal(readFileSync(file, "utf8"), broken);
+    assert.equal(await profileKey("opencode"), undefined);
+  });
+});
+
 test("a restore after the profile's provider id changed still removes LLM Router's provider and its key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withProviderJsonRoot(async (root) => {
     const file = path.join(root, "opencode.jsonc");
