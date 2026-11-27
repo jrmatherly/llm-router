@@ -161,11 +161,12 @@ test("UsageStore records usage while the price catalog loads and prices it after
   try {
     const file = path.join(dir, "usage.sqlite");
     let catalogLoaded = false;
-    const pricing = {
-      estimateCost: (input) => catalogLoaded
-        ? { amountUsd: 0.25, model: input.model, source: "models.dev" }
-        : undefined,
-      priceCatalogNeedsRefresh: () => !catalogLoaded
+    const pricing = { priceCatalogNeedsRefresh: () => !catalogLoaded };
+    const connection = {
+      enqueueRequestLogPrices: () => undefined,
+      resolvePrice: () => catalogLoaded
+        ? { price: { pricing: { inputUsdPerMillionTokens: 25_000, outputUsdPerMillionTokens: 0 }, source: "models.dev" }, state: "priced" }
+        : { state: "no-catalog" }
     };
     const event = (requestId) => ({
       durationMs: 10,
@@ -180,6 +181,7 @@ test("UsageStore records usage while the price catalog loads and prices it after
 
     // The first process never sees its catalog load, as if it quit mid-fetch.
     const stalled = new UsageStore(file, { ...pricing, loadPriceCatalog: () => new Promise(() => {}) });
+    stalled.connectPricing(connection);
     await stalled.record(event("req-before-restart"));
     assert.equal(await stalled.hasRequestId("req-before-restart"), true);
     assert.equal((await stalled.getStats("24h", { includeProxy: true })).totals.costUsd, 0);
@@ -194,6 +196,7 @@ test("UsageStore records usage while the price catalog loads and prices it after
         };
       })
     });
+    store.connectPricing(connection);
     await store.record(event("req-after-restart"));
     assert.equal((await store.getStats("24h", { includeProxy: true })).totals.costUsd, 0);
 
@@ -1071,34 +1074,60 @@ test("UsageStore backs off request-log backfill after it fails", async (t) => {
   } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
 });
 
-test("the usage sweep skips a row resolved as unpriced and still prices a row written before any catalog", async () => {
-  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-unpriced-sweep-test-"));
-  try {
-    let loaded = false;
-    let sweepDone;
-    const swept = new Promise((resolve) => { sweepDone = resolve; });
-    const store = new UsageStore(path.join(dir, "usage.sqlite"), {
-      estimateCost: async () => loaded ? { amountUsd: 1, model: "any-model", source: "litellm" } : undefined,
-      loadPriceCatalog: async () => {
-        loaded = true;
-        setImmediate(sweepDone);
-      },
-      priceCatalogNeedsRefresh: () => !loaded
-    });
-    const event = { durationMs: 1, method: "POST", model: "any-model", path: "/v1/messages", provider: "alpha", statusCode: 200, usage: { inputTokens: 10, outputTokens: 1 } };
-    await store.record({ ...event, price: { state: "unpriced" }, requestId: "unpriced-request" });
-    await store.record({ ...event, price: { state: "no-catalog" }, requestId: "no-catalog-request" });
-    await swept;
-    await new Promise((resolve) => setTimeout(resolve, 20));
+async function until(read) {
+  const deadline = performance.now() + 2_000;
+  while (!read() && performance.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
+}
 
-    const database = createBetterSqliteDatabase(path.join(dir, "usage.sqlite"));
+test("the usage sweep prices a waiting row by the connected rule and the priced model, marks a row the rule cannot price, and sends both outcomes to the request log", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-connected-sweep-test-"));
+  const file = path.join(dir, "usage.sqlite");
+  const read = (sql, ...params) => {
+    const database = createBetterSqliteDatabase(file);
     try {
-      const row = (requestId) => ({ ...database.prepare("SELECT cost_source, cost_usd FROM usage_events WHERE request_id = ?").get(requestId) });
-      assert.deepEqual(row("unpriced-request"), { cost_source: "unpriced", cost_usd: null });
-      assert.deepEqual(row("no-catalog-request"), { cost_source: "litellm", cost_usd: 1 });
+      return database.prepare(sql).get(...params);
     } finally {
       database.close();
     }
+  };
+  const row = (requestId) => ({ ...read("SELECT cost_source, cost_usd FROM usage_events WHERE request_id = ?", requestId) });
+  const rowWithoutRequestId = () => ({ ...read("SELECT cost_source, cost_usd FROM usage_events WHERE request_id = ''") });
+  try {
+    const store = new UsageStore(file, { loadPriceCatalog: async () => {}, priceCatalogNeedsRefresh: () => true });
+    const event = { durationMs: 1, method: "POST", path: "/v1/messages", provider: "alpha", statusCode: 200, usage: { inputTokens: 10, outputTokens: 1 } };
+    const sent = [];
+    const price = { price: { pricing: { inputUsdPerMillionTokens: 100_000, outputUsdPerMillionTokens: 0 }, source: "litellm" }, state: "priced" };
+    store.connectPricing({
+      enqueueRequestLogPrices: (updates) => sent.push(...updates),
+      resolvePrice: (_provider, model) => model === "known-model" ? price : { state: "unpriced" }
+    });
+    await store.record({ ...event, model: "known-model", price: { state: "no-catalog" }, requestId: "waiting" });
+    await store.record({ ...event, model: "my-alias", price: { state: "no-catalog" }, priceModel: "known-model", requestId: "alias" });
+    await store.record({ ...event, model: "no-price-model", price: { state: "no-catalog" }, requestId: "unpriced" });
+    await store.record({ ...event, model: "known-model", price: { state: "no-catalog" }, requestId: "" });
+    await until(() => row("waiting").cost_usd !== null && row("alias").cost_usd !== null && row("unpriced").cost_source === "unpriced" && rowWithoutRequestId().cost_usd !== null);
+    assert.deepEqual(row("waiting"), { cost_source: "litellm", cost_usd: 1 });
+    assert.deepEqual(row("alias"), { cost_source: "litellm", cost_usd: 1 });
+    assert.deepEqual(row("unpriced"), { cost_source: "unpriced", cost_usd: null });
+    assert.deepEqual(rowWithoutRequestId(), { cost_source: "litellm", cost_usd: 1 });
+    assert.deepEqual(sent.sort((left, right) => left.requestId < right.requestId ? -1 : 1), [
+      { price, requestId: "alias" },
+      { price: { state: "unpriced" }, requestId: "unpriced" },
+      { price, requestId: "waiting" }
+    ]);
+  } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
+});
+
+test("a store that was never connected to the rule records a waiting row and never loads a catalog", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-unconnected-test-"));
+  try {
+    let loads = 0;
+    const store = new UsageStore(path.join(dir, "usage.sqlite"), { loadPriceCatalog: async () => { loads += 1; }, priceCatalogNeedsRefresh: () => true });
+    await store.record({ durationMs: 1, method: "POST", model: "known-model", path: "/v1/messages", price: { state: "no-catalog" }, provider: "alpha", requestId: "waiting", statusCode: 200, usage: { inputTokens: 10, outputTokens: 1 } });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const row = (await store.getDatabase()).prepare("SELECT cost_source, cost_usd FROM usage_events WHERE request_id = 'waiting'").get();
+    assert.deepEqual({ ...row }, { cost_source: "", cost_usd: null });
+    assert.equal(loads, 0);
   } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
 });
 

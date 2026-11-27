@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 import {
-  estimateUsageCostUsd,
-  estimateUsageCostUsdFromLoadedCatalog,
+  estimateUsageCost,
   parseUsagePricingSource,
   preloadUsagePriceCatalog,
   providerModelPricingForUsage,
@@ -27,12 +26,7 @@ test("custom model pricing is used without loading the remote catalog", async ()
     provider: "Custom"
   };
 
-  assert.deepEqual(await estimateUsageCostUsd(input), {
-    amountUsd: 6.425,
-    model: "custom-model",
-    source: "custom"
-  });
-  assert.deepEqual(estimateUsageCostUsdFromLoadedCatalog(input), {
+  assert.deepEqual(estimateUsageCost(input), {
     amountUsd: 6.425,
     model: "custom-model",
     source: "custom"
@@ -40,7 +34,7 @@ test("custom model pricing is used without loading the remote catalog", async ()
 });
 
 test("custom pricing requires both input and output prices", async () => {
-  const result = estimateUsageCostUsdFromLoadedCatalog({
+  const result = estimateUsageCost({
     inputTokens: 1000,
     model: "custom-model",
     pricing: { inputUsdPerMillionTokens: 2 },
@@ -51,7 +45,7 @@ test("custom pricing requires both input and output prices", async () => {
 });
 
 test("custom pricing applies separate 5m and 1h cache-write rates", () => {
-  const result = estimateUsageCostUsdFromLoadedCatalog({
+  const result = estimateUsageCost({
     cacheWrite1hTokens: 40000,
     cacheWrite5mTokens: 60000,
     cacheWriteTokens: 120000,
@@ -121,23 +115,22 @@ test("a price source that failed is fetched again well before the 24h catalog TT
     return Response.json({ data: [] });
   };
   mock.timers.enable({ apis: ["Date"], now: Date.now() });
-  const usage = { inputTokens: 1_000_000, model: "retry-model", outputTokens: 0, provider: "anthropic" };
+  const resolve = () => resolveRequestPrice(undefined, "anthropic", "retry-model");
   try {
     await preloadUsagePriceCatalog({ forceRefresh: true });
-    assert.equal(estimateUsageCostUsdFromLoadedCatalog(usage), undefined);
+    assert.deepEqual(resolve(), { state: "no-catalog" });
 
     modelsDevUp = true;
     mock.timers.tick(5 * 60 * 1000);
     await preloadUsagePriceCatalog();
-    assert.deepEqual(estimateUsageCostUsdFromLoadedCatalog(usage), {
-      amountUsd: 2,
-      model: "retry-model",
-      source: "models.dev"
+    assert.deepEqual(resolve(), {
+      price: { pricing: { inputUsdPerMillionTokens: 2, outputUsdPerMillionTokens: 8 }, source: "models.dev" },
+      state: "priced"
     });
     assert.equal(fetched.filter((url) => url.includes("litellm")).length, 1, "a healthy source is not refetched");
 
     mock.timers.tick(60 * 60 * 1000);
-    assert.ok(estimateUsageCostUsdFromLoadedCatalog(usage), "a complete catalog keeps the full TTL");
+    assert.equal(resolve().state, "priced", "a complete catalog keeps the full TTL");
   } finally {
     mock.timers.reset();
     globalThis.fetch = originalFetch;
@@ -197,10 +190,6 @@ test("two catalogs that list the same offers in a different provider order give 
         pricing: makerHaiku,
         source: "models.dev"
       }));
-      assert.deepEqual(
-        estimateUsageCostUsdFromLoadedCatalog({ ...million, model: "claude-haiku-5-5", provider: "VM Custom" }),
-        { amountUsd: 0.6, model: "claude-haiku-5-5", source: "models.dev" }
-      );
     });
   }
 });
@@ -220,12 +209,12 @@ test("a user price of zero is a real price of zero", async () => {
     const outcome = resolveRequestPrice(config, "VM Custom", "claude-haiku-5-5");
     assert.deepEqual(outcome, priced({ pricing, source: "custom" }));
     const usage = { model: "claude-haiku-5-5", pricing: outcome.price.pricing, pricingSource: outcome.price.source, provider: "VM Custom" };
-    assert.deepEqual(estimateUsageCostUsdFromLoadedCatalog({ ...usage, inputTokens: 143, outputTokens: 4 }), {
+    assert.deepEqual(estimateUsageCost({ ...usage, inputTokens: 143, outputTokens: 4 }), {
       amountUsd: 0,
       model: "claude-haiku-5-5",
       source: "custom"
     });
-    assert.equal(estimateUsageCostUsdFromLoadedCatalog(usage), undefined, "no tokens, no cost");
+    assert.equal(estimateUsageCost(usage), undefined, "no tokens, no cost");
   });
 });
 
@@ -243,7 +232,7 @@ test("a catalog entry priced 0 for input and output does not stop the rule", asy
     }));
     const resolved = { inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 5 };
     assert.equal(
-      estimateUsageCostUsdFromLoadedCatalog({ inputTokens: 10, model: "m", pricing: resolved, pricingSource: "models.dev" }),
+      estimateUsageCost({ inputTokens: 10, model: "m", pricing: resolved, pricingSource: "models.dev" }),
       undefined,
       "only a user price may come to zero"
     );
@@ -328,10 +317,6 @@ test("a canonical id that names no priced entry is priced by the median reseller
   await withPriceCatalogs({ modelsDev: labModelsDev }, () => {
     assert.deepEqual(resolveRequestPrice(customConfig, "VM Custom", "lab-model"), priced(labMedian));
     assert.deepEqual(resolveRequestPrice(customConfig, "VM Custom", "reseller-a/lab-model"), priced(labMedian));
-    assert.deepEqual(
-      estimateUsageCostUsdFromLoadedCatalog({ ...million, model: "lab-model", provider: "VM Custom" }),
-      { amountUsd: 11, model: "lab-model", source: "models.dev-median" }
-    );
   });
 });
 
@@ -452,22 +437,22 @@ test("a model with no offer that has both an input and an output price above zer
   };
   await withPriceCatalogs({ liteLlm: { other: { input_cost_per_token: 1, output_cost_per_token: 1 } }, modelsDev }, () => {
     assert.deepEqual(resolveRequestPrice(customConfig, "VM Custom", "orphan"), { state: "unpriced" });
-    assert.equal(
-      estimateUsageCostUsdFromLoadedCatalog({ ...million, model: "orphan", provider: "VM Custom" }),
-      undefined
-    );
   });
 });
 
-test("the fallback estimate unwraps a route selector and strips the provider prefix", async () => {
+test("the rule unwraps a route selector and strips the provider prefix", async () => {
   await withPriceCatalogs({ modelsDev: haikuModelsDev }, () => {
     for (const model of ["VM Custom/claude-haiku-5-5", "vm-custom::anthropic_messages/claude-haiku-5-5"]) {
-      assert.equal(
-        estimateUsageCostUsdFromLoadedCatalog({ ...million, model, provider: "VM Custom" })?.amountUsd,
-        0.6,
-        model
-      );
+      assert.deepEqual(resolveRequestPrice(customConfig, "VM Custom", model), priced({ pricing: makerHaiku, source: "models.dev" }), model);
     }
+  });
+});
+
+test("an estimate with no complete price is no cost, whatever catalog is loaded", async () => {
+  await withPriceCatalogs({ modelsDev: haikuModelsDev }, () => {
+    assert.equal(resolveRequestPrice(customConfig, "VM Custom", "claude-haiku-5-5").state, "priced");
+    assert.equal(estimateUsageCost({ ...million, model: "claude-haiku-5-5", provider: "VM Custom" }), undefined);
+    assert.equal(estimateUsageCost({ ...million, model: "claude-haiku-5-5", pricing: { inputUsdPerMillionTokens: 1 }, provider: "VM Custom" }), undefined);
   });
 });
 

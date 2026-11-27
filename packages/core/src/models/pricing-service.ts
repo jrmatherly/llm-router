@@ -18,10 +18,10 @@ export type ResolvedModelPrice = {
   source: UsagePricingSource;
 };
 
-// "unpriced": every catalog source loaded and none holds a price, so no writer
-// estimates and both back-fills skip the row. "no-catalog": nothing was
-// searched, or nothing was found while a source is failing, so each writer's
-// fallback estimate and back-fill still run.
+// "unpriced": every catalog source loaded and none holds a price, so the usage
+// sweep marks the row and never resolves it again. "no-catalog": nothing was
+// searched, or nothing was found while a source is failing, so the row waits
+// with no cost until the sweep prices it and sends the price update to Logs.
 export type RequestPriceOutcome =
   | { price: ResolvedModelPrice; state: "priced" }
   | { state: "unpriced" }
@@ -50,7 +50,7 @@ export type UsageCostEstimate = {
   source: UsagePricingSource;
 };
 
-// Stored in cost_source for a row resolved as "unpriced", so neither back-fill prices it.
+// Stored in cost_source for a row resolved as "unpriced", so the sweep and a price update leave it.
 export const unpricedCostSource = "unpriced";
 
 export type WritePricing =
@@ -111,17 +111,7 @@ const pricingSources = new Set(Object.keys({
 let catalog: PriceCatalog | undefined;
 let catalogPromise: Promise<PriceCatalog> | undefined;
 
-export async function estimateUsageCostUsd(input: UsageCostInput): Promise<UsageCostEstimate | undefined> {
-  if (!hasCompleteProviderModelPricing(input.pricing) && hasBillableUsage(input)) {
-    await getPriceCatalog();
-  }
-  return estimateUsageCostUsdFromLoadedCatalog(input);
-}
-
-/**
- * Loads the remote catalog without holding a caller's database transaction.
- * Callers that own a write transaction can then use the cache-only estimator.
- */
+/** Loads the remote catalog without holding a caller's database transaction. */
 export async function preloadUsagePriceCatalog(options: { forceRefresh?: boolean } = {}): Promise<void> {
   if (options.forceRefresh) {
     catalog = undefined;
@@ -135,10 +125,8 @@ export function usagePriceCatalogNeedsRefresh(): boolean {
   return !catalog || Array.from(catalog.values()).some((source) => now >= source.expiresAt);
 }
 
-/** Never performs I/O. Uses the loaded catalog even when a source is due for a refresh. */
-export function estimateUsageCostUsdFromLoadedCatalog(
-  input: UsageCostInput
-): UsageCostEstimate | undefined {
+/** Never reads the catalog: a cost comes only from a complete input.pricing. */
+export function estimateUsageCost(input: UsageCostInput): UsageCostEstimate | undefined {
   if (!hasBillableUsage(input)) {
     return undefined;
   }
@@ -146,12 +134,9 @@ export function estimateUsageCostUsdFromLoadedCatalog(
   if (!model || model === "unknown") {
     return undefined;
   }
-  if (hasCompleteProviderModelPricing(input.pricing)) {
-    return estimateUsageCostFromPricing(input, model, input.pricing, input.pricingSource || "custom");
-  }
-  // No config here, so no base-URL mapping: a fallback can price differently from resolveRequestPrice.
-  const entry = catalog && findCatalogRulePrice(catalog, model, input.provider, []);
-  return entry ? estimateUsageCostFromPricing(input, entry.model, entry.pricing, entry.source) : undefined;
+  return hasCompleteProviderModelPricing(input.pricing)
+    ? estimateUsageCostFromPricing(input, model, input.pricing, input.pricingSource || "custom")
+    : undefined;
 }
 
 /** Never loads the catalog: "no-catalog" means this process has none yet. */
@@ -179,11 +164,11 @@ export function resolveRequestPrice(
   if (entry) {
     return { price: { pricing: entry.pricing, source: entry.source }, state: "priced" };
   }
-  // "unpriced" is stored and never back-filled, so it needs every source: a source that failed may hold the price.
+  // "unpriced" is stored and never swept again, so it needs every source: a source that failed may hold the price.
   return Array.from(catalog.values()).some((source) => source.failed) ? { state: "no-catalog" } : { state: "unpriced" };
 }
 
-/** "unpriced" forbids a writer's own estimate. */
+/** "no-catalog" leaves the row with no cost, for the usage sweep and its price update to price. */
 export function pricingForWrite(input: RequestPriceInput): WritePricing {
   if (input.price?.state === "priced") {
     return { estimate: true, pricing: input.price.price.pricing, pricingSource: input.price.price.source };

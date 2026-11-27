@@ -17,6 +17,7 @@ import type {
   RequestLogPage
 } from "@llmr/core/contracts/app";
 import type {
+  RequestLogPriceUpdate,
   RequestLogRawTraceFiles,
   RequestLogRawTraceUpdateInput,
   RequestLogRecordInput,
@@ -96,8 +97,7 @@ type WorkerResponse = {
   error?: string;
   requestId?: number;
   result?: unknown;
-  type: "ack" | "batch-error" | "maintenance" | "ready" | "response";
-  updated?: number;
+  type: "ack" | "batch-error" | "ready" | "response";
 };
 
 type PendingRpc = {
@@ -130,6 +130,7 @@ const defaultAdmissionOverlayMaxEntries = 10_000;
 const defaultAdmissionOverlayTtlMs = 10 * 60 * 1_000;
 const admissionDrainTimeSliceMs = 5;
 const admissionDrainMaxOperations = 100;
+const priceUpdateBytes = 128;
 
 export class RequestLogRuntime {
   private accepted = 0;
@@ -311,6 +312,18 @@ export class RequestLogRuntime {
       writeAttempts: 0
     };
     return this.enqueue(command, bodyPolicyDegraded ? "body_removed" : undefined);
+  }
+
+  enqueuePriceUpdates(input: RequestLogPriceUpdate[]): RequestLogEnqueueResult {
+    const sizeBytes = priceUpdateBytes * input.length;
+    return this.enqueue({
+      input,
+      kind: "price-update",
+      sequence: ++this.nextSequence,
+      batchBytes: sizeBytes,
+      sizeBytes,
+      writeAttempts: 0
+    });
   }
 
   async list(filter?: RequestLogListFilter): Promise<RequestLogPage> {
@@ -790,10 +803,6 @@ export class RequestLogRuntime {
     }
     if (message.type === "batch-error") {
       this.handleBatchError(message);
-      return;
-    }
-    if (message.type === "maintenance" && (message.updated ?? 0) > 0) {
-      this.revision += 1;
       return;
     }
     settleRpc(this.writerRequests, message);
