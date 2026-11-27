@@ -9,7 +9,7 @@ import {
   normalizeDeepSeekCacheUsageStream
 } from "@llmr/core/gateway/features/opencode-cache-usage";
 import { isFrontDoorHeader } from "@llmr/core/gateway/internal/front-door-headers";
-import { claudeAppsGatewayIdentityHeaderNames, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
+import { claudeAppsGatewayIdentityHeaderNames, clientDisplayNameHeaderNames, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
 
 type UpstreamRequest = {
   body: unknown;
@@ -205,6 +205,7 @@ export function mergeUpstreamProviderHeaders(
       llmrAuthHeaderNames.has(normalized) ||
       llmrRoutingHeaderNames.has(normalized) ||
       claudeAppsGatewayIdentityHeaderNames.has(normalized) ||
+      clientDisplayNameHeaderNames.some((name) => name === normalized) ||
       clientAuthHeaderNames.has(normalized) ||
       isFrontDoorHeader(normalized) ||
       connectionHeaders.has(normalized)

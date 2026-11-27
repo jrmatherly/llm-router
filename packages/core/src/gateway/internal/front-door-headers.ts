@@ -1,5 +1,7 @@
 const frontDoorHeaderNames = new Set([
   "cdn-loop",
+  "client-cert",
+  "client-cert-chain",
   "fastly-client-ip",
   "forwarded",
   "remote-user",

@@ -321,7 +321,10 @@ test("gateway sanitizer hook does not forward reverse proxy metadata to provider
         "x-forwarded-port": "80",
         "x-forwarded-proto": "http",
         "x-real-ip": "192.0.2.10",
-        "x-custom-provider-header": "custom-value"
+        "x-custom-provider-header": "custom-value",
+        "client-cert": ":MIIB:",
+        "client-cert-chain": ":MIIC:",
+        "x-client-name": "codex-cli"
       }
     },
     upstreamRequest
@@ -332,6 +335,12 @@ test("gateway sanitizer hook does not forward reverse proxy metadata to provider
     "content-type": "application/json",
     "x-custom-provider-header": "custom-value"
   });
+
+  const providerSet = await hook.transformRequest({
+    request: { headers: { "x-client-name": "codex-cli" } },
+    upstreamRequest: { ...upstreamRequest, headers: { ...upstreamRequest.headers, "x-client-name": "provider-set" } }
+  });
+  assert.equal(providerSet.value.headers["x-client-name"], "provider-set");
 });
 
 test("Claude apps gateway identity headers are attributed at ingress and never reach the provider", () => {
