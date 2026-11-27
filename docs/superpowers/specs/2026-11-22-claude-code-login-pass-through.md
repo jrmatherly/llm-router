@@ -4,7 +4,7 @@ Date 2026-11-22. LLM Router `main` at `eb84a3ba` (v8.1.0). Gateway fork `jrmathe
 
 **Goal.** LLM Router stops importing, refreshing and writing back the Claude Code subscription login. Claude Code sends its own login on each request, and LLM Router forwards it to Anthropic. Nothing about the login is stored.
 
-**Plan.** [`docs/superpowers/plans/2026-11-22-claude-code-login-pass-through.md`](../plans/2026-11-22-claude-code-login-pass-through.md).
+**Plan.** [`docs/superpowers/plans/completed/2026-11-22-claude-code-login-pass-through.md`](../plans/completed/2026-11-22-claude-code-login-pass-through.md).
 
 ## How this was checked
 

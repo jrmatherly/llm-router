@@ -8,6 +8,17 @@
 
 **Regrouped the same day after the fix round of the six draft plans.** One researcher per plan, on another model, checked every Blocker and Correction of its 2026-11-22 audit against `main` `c491eb48`, corrected the plan's text, and judged its batches. Of 12 Blockers, 11 hold and one was overtaken by PR 146. Two new Blockers were found. The session checked seven of their claims against the code before folding them in, and all seven held. The table below is the result. Each plan's status line says what its round ran and what it did not.
 
+## State on 2026-11-27
+
+Checked that day at `main` `b504d153` against GitHub's list of merged PRs and the tags of both repositories. Every PR number and squash hash in the table below matches (read).
+
+- **Merged.** 18 of the 19 batches, both Windows PRs, and three PRs of test faults outside the batches (163, 165, 179). The Tests run for `b504d153` passed, Windows and the Intel Mac included (read).
+- **Released.** None of it. The last release is `v9.0.0`, cut on 2026-11-24 with PRs up to 148. PRs 149 to 179 are on `main` and in no release, and `main` is 125 commits past the tag (run).
+- **Not merged.** Batch 5. Its fork commit is built and waits on the owner's word, as its row says.
+- **Not built, and not a PR.** Restore Task 9, a prototype with no product code. Pricing Tasks 6 and 8, which wait on the owner's answers to questions 2 and 3 below.
+- **Findings nobody fixed.** They are listed by PR under "Findings with no task" below. [`2026-11-27-open-findings.md`](2026-11-27-open-findings.md) is the same list as one register, by area, with a proposed disposition for each.
+- **What is left to do**, in order, is in [`2026-11-27-finish-and-release.md`](2026-11-27-finish-and-release.md). That plan takes over from the "Order" and "The end" sections of this file. This file stays as the record of how the batches landed.
+
 ## The owner's decisions
 
 Read these before any batch. A plan line or a handoff line that contradicts one is wrong.
@@ -40,7 +51,7 @@ Nineteen PRs. The plans hold 49 tasks that are not built: 44 in the nine plans t
 | 2 | `fix/provider-form-local-login`. **Merged, PR 157, `3aef9d00`** | Follow-ups 8, VM findings 4, follow-ups 9, follow-ups 10, in that order | `App.tsx`, `providers.tsx`, `shared/providers.ts` | Nothing. This is follow-ups PR 3 as already planned |
 | 3 | `test/harness-and-codex-parse`. **Merged, PR 158, `033c1281`** | Harness 1, 2, 3, stripper 1 | `build/test-home.mjs`, `build/test-home-env.mjs`, `build/run-tests.mjs`, the Codex parse helper | Nothing. Tests and harness only |
 | 4 | `ci/package-suites-matrix`. **Merged, PR 159, `1b09fc2d`, with the Windows entry allowed to fail** | Harness 4 | `.github/workflows/test.yml`, and whatever tests its first run shows need a fix | Batch 3. Kept apart because a red matrix job blocks a release. Not open beside batches 6 to 10b: its test fixes can land in `profile-service.test.mjs`, which they change |
-| 5 | `fix/gateway-log-control` | Harness 5 | The gateway fork, then two `package.json` pins | His word for the fork push and tag. The fork is at `v1.0.22-llmr.4`, so this releases `llmr.5` |
+| 5 | `fix/gateway-log-control`. **Fork commit built 2026-11-27, pushed nowhere** | Harness 5 | The gateway fork, then two `package.json` pins | His word for the fork push and tag. The fork is at `v1.0.22-llmr.4`, so this releases `llmr.5`. Steps 1 to 5 are done as commit `d35913c` on the local branch `fastify-log-controller` of the clone at `~/dev/llmr-gateway`: the entry test failed on `FSTDEP023` before the change and passes after, the fork's suite is 1018 passed and 7 skipped before and after, and a built gateway printed 0 request lines with access logs off and 4 with them on (run). Asked that day, the owner said not yet. Steps 6 and 7 are Task 1 of the finish plan |
 | 6 | `fix/codex-config-scanner`. **Merged, PR 164, `06ea2534`** | Stripper 2, 3 | `codex-config-strip.ts`, `profiles/service.ts` | Batch 3 |
 | 7 | `fix/codex-ownership-and-backups`. **Merged, PR 166, `01ee3233`** | Stripper 4, 5, 6, 7 | `codex-config-strip.ts`, `backup-files.ts`, `profiles/service.ts` | Batch 6. About 110 source lines and 195 of test, measured by the text audit's build on 2026-11-26, after Task 7 was added and the S-7 part of Task 5 removed. The owner's word for the batch is of that day |
 | 8 | `fix/save-restore-statuses`. **Merged, PR 167, `8c7ae6ba`** | Restore 1, 2 | `profiles/service.ts`, the save path through `ipc.ts`, `management-server.ts`, `cli.ts`, `App.tsx` | Batch 7 |
@@ -81,7 +92,7 @@ When it is built, this is the branch. By then the batches it meets are merged, s
 
 ## Order
 
-1. Batches 1, 2, 3, 4, 6, 7, 8, 9, 10a, 10b, 11, 12, 13a, 13b, 14, 15, 16 and 17 and both Windows PRs are merged (PRs 156 to 162, 164, 166, 167 and 169 to 178), and so are two PRs of test faults outside the batches (163 and 165). The stripper plan, the logs plan and the client label plan are built and in `completed/`. Row 3 is done, so `profiles/service.ts` has no batch left. The pricing plan's built tasks are all merged. What is left: batch 5, on the owner's word for the fork. One batch remains. The line below is the record of how batch 4 landed.
+1. Batches 1, 2, 3, 4, 6, 7, 8, 9, 10a, 10b, 11, 12, 13a, 13b, 14, 15, 16 and 17 and both Windows PRs are merged (PRs 156 to 162, 164, 166, 167 and 169 to 178), and so are three PRs of test faults outside the batches (163, 165 and 179). The stripper plan, the logs plan and the client label plan are built and in `completed/`. Row 3 is done, so `profiles/service.ts` has no batch left. The pricing plan's built tasks are all merged. What is left: batch 5, on the owner's word for the fork. One batch remains. The line below is the record of how batch 4 landed.
    Batches 1, 2 and 3 are merged. Batch 4 merged as PR 159 on 2026-11-25 with the Windows entry allowed to fail, so batch 6 can start. Batch 17 merged as PR 160 on 2026-11-25.
 2. Batch 3, then 4, with 4 merged before batch 6 opens. Batch 5 at any point once the owner gives his word on the fork.
 3. Batches 6, 7, 8, 9, 10a, 10b, one after another. All six change `profiles/service.ts`.
@@ -286,4 +297,5 @@ Four older plans sat in this folder and were not ordered here. None holds a code
 - **The v8 plan** is in [`completed/`](completed/2026-11-21-v8-clean-vm-fixes.md). Every code task is merged and released. Its VM checks are a line of the end pass above, and its Open items became the backlog plans this file batches.
 - **The audit program's hygiene and upstream leftovers plans** are in `completed/`. Their five PRs (69, 70, 71, 90, 91) are merged, read from GitHub.
 - **The audit program's release safety plan** stays open for RS-5, which is repository settings and not a PR. Its PRs 64 to 67 are merged. Four of RS-5's six settings are not applied, read from the GitHub API: Dependabot version updates, SHA pinning for actions, squash-only merges and the tag ruleset. They are the owner's steps and gate nothing here.
+- **Four plans of this program moved to `completed/` on 2026-11-27**, every task of each being merged: the keys plan (PRs 149 to 151, 153, 154 and batch 1), the VM findings plan (PRs 152, 155 and batches 1 and 2), the pass-through plan (PR 146, released in 9.0.0) and its follow-ups plan (PRs 147 and 148, released in 9.0.0, and batch 2). Their VM checks are lines of the end pass. Still in this folder, each with something not built: the harness plan (Task 5), the restore plan (Task 9), the pricing plan (Tasks 6 and 8), and gateway phase 1. The gateway phase 0 plan is built in full and stays here only because another session owns it: its status line still says Task 5 is not built, and Task 5 merged in PR 174.
 - **The audit program's index** stays with it. Its list "Steps only the owner can do" holds manual checks and release notes that nobody has recorded as done. Which of them the owner ran was not checked.

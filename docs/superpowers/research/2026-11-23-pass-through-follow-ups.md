@@ -1,6 +1,6 @@
 # Pass-through follow-ups, 2026-11-23
 
-This record holds what was found after [PR 146](https://github.com/jrmatherly/llm-router/pull/146) merged, at `main` `e789f962` (v8.1.0, not released with that change). PR 146 made LLM Router forward the Claude Code login on each request and stop importing it. Five open questions about it were researched on 2026-11-23. This record is the spec for [`docs/superpowers/plans/2026-11-23-pass-through-follow-ups.md`](../plans/2026-11-23-pass-through-follow-ups.md), which cites findings and decisions by their ids here.
+This record holds what was found after [PR 146](https://github.com/jrmatherly/llm-router/pull/146) merged, at `main` `e789f962` (v8.1.0, not released with that change). PR 146 made LLM Router forward the Claude Code login on each request and stop importing it. Five open questions about it were researched on 2026-11-23. This record is the spec for [`docs/superpowers/plans/completed/2026-11-23-pass-through-follow-ups.md`](../plans/completed/2026-11-23-pass-through-follow-ups.md), which cites findings and decisions by their ids here.
 
 The design it follows is [`docs/superpowers/specs/2026-11-22-claude-code-login-pass-through.md`](../specs/2026-11-22-claude-code-login-pass-through.md). Its decisions PT-1 to PT-11 stand and are not reopened here.
 

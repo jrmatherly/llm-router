@@ -185,7 +185,7 @@ Build them in this order. Each is its own file and produces working software alo
 
 | Order | Plan | Rows | Why here |
 |---|---|---|---|
-| 1 | [`2026-11-22-backlog-keys.md`](../plans/2026-11-22-backlog-keys.md) | K-1, K-2, K-3 | The only rows where a user loses a key or a revocation today. |
+| 1 | [`2026-11-22-backlog-keys.md`](../plans/completed/2026-11-22-backlog-keys.md) | K-1, K-2, K-3 | The only rows where a user loses a key or a revocation today. |
 | 2 | [`2026-11-22-backlog-harness.md`](../plans/2026-11-22-backlog-harness.md) | H-1 to H-6 | Every later plan's tests use the TOML check, the network guard and the platform jobs. |
 | 3 | [`2026-11-22-backlog-logs.md`](../plans/completed/2026-11-22-backlog-logs.md) | L-1 to L-15 except L-5 | Late rows affect every user of the default layout. |
 | 3b | [`2026-11-22-backlog-client-label.md`](../plans/completed/2026-11-22-backlog-client-label.md) | L-5, C-1 to C-5 | After the logs plan, which changes the refusal path the label is read on. |

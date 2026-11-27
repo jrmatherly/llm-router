@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Delivery, 2026-11-25.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) groups this plan's unbuilt tasks into batches with other plans' tasks and sets the order. It overrides this plan's lines on branches, on one PR per task, and on waiting for a VM check: the owner's VM pass comes once, at the end.
+> **Delivery, 2026-11-25.** [`2026-11-25-delivery-order.md`](../2026-11-25-delivery-order.md) groups this plan's unbuilt tasks into batches with other plans' tasks and sets the order. It overrides this plan's lines on branches, on one PR per task, and on waiting for a VM check: the owner's VM pass comes once, at the end.
 
 **Goal:** A person who turns on "Sign in with my Claude login" gets a form, a provider dialog, model pickers, a saved config and an upgrade note that all say what PR 146 does, before that change is released.
 
@@ -10,7 +10,7 @@
 
 **Tech Stack:** TypeScript, React, `node:test` with `node:assert/strict`, `renderToStaticMarkup`, Playwright for the `tests/e2e/` specs.
 
-**Spec:** [`docs/superpowers/research/2026-11-23-pass-through-follow-ups.md`](../research/2026-11-23-pass-through-follow-ups.md). Finding ids F-1 to F-18 and decision ids FU-1 to FU-13 come from it. Read its Decisions table and the finding a task names before you start the task. The design those findings sit on is [`docs/superpowers/specs/2026-11-22-claude-code-login-pass-through.md`](../specs/2026-11-22-claude-code-login-pass-through.md).
+**Spec:** [`docs/superpowers/research/2026-11-23-pass-through-follow-ups.md`](../../research/2026-11-23-pass-through-follow-ups.md). Finding ids F-1 to F-18 and decision ids FU-1 to FU-13 come from it. Read its Decisions table and the finding a task names before you start the task. The design those findings sit on is [`docs/superpowers/specs/2026-11-22-claude-code-login-pass-through.md`](../../specs/2026-11-22-claude-code-login-pass-through.md).
 
 **Evidence status.** Written from reading at `main` `e789f962`, then audited, reviewed twice at `61bf9eae` (a builder dry-run and a design review), revised, and audited a second time. The record's "How this was checked" defines the labels. The **ran** labels mark runs on today's code or against a stand-in for code that does not exist yet. Every result that a "watch it fail" step expects was seen in one of those runs, unless the step says it is inferred. Everything else is read or inferred and says so. No fix here was built. PR 3 was written later, at `013ebc2e`, and its own evidence paragraph says how.
 
@@ -627,7 +627,7 @@ Last in PR 1, because its text describes what Tasks 2 to 5 built.
 - Modify: `README.md` (`:175-177`)
 - Modify: `docs/src/content/docs/en/configuration/profiles.md` (`:53`, the section "Claude login mode" `:57-71`, the table row `:77`)
 - Modify: `docs/src/content/docs/en/configuration/providers.md` (the "Claude Code" section, `:12-24`)
-- Modify: `docs/superpowers/plans/2026-11-22-claude-code-login-pass-through.md` (its Status paragraph, the bullet "Open for the owner")
+- Modify: `docs/superpowers/plans/completed/2026-11-22-claude-code-login-pass-through.md` (its Status paragraph, the bullet "Open for the owner")
 
 - [ ] **Step 1: README.** The heading becomes `### Upgrading from 8.x`. After the sentence that ends "should use your Claude subscription." add: `A default model from another provider still starts every new session on that provider, whatever you pick with /model.` Then, **P8**: `Clear **Default model** in the profile to start on Claude Code's own default.` Then: `Route rules, fallbacks and other agents' profiles that name a Claude Code API model now fail with a message that says to sign in. Point them at another provider.` The rest of the paragraph stays.
 - [ ] **Step 2: `profiles.md`, the section "Claude login mode".**
@@ -643,7 +643,7 @@ Last in PR 1, because its text describes what Tasks 2 to 5 built.
 - **Open for the owner.** The gateway key line in `.llmr-backup-*` copies of a settings file and the README's upgrade heading are handled in [`2026-11-23-pass-through-follow-ups.md`](2026-11-23-pass-through-follow-ups.md), which also sets the release order now that Gate B is the gate for the release. A model id with `[1m]` reaches Anthropic unchanged, and whether Anthropic accepts it is for Gate B.
 ```
 
-- [ ] **Step 6: Check.** `git grep -n "Upgrading to 9" -- README.md docs/src docs/superpowers/plans/2026-11-22-claude-code-login-pass-through.md` prints nothing. Today it prints the two lines that Steps 1 and 5 replace (ran (second audit)). Read each changed paragraph once in the diff. `npm run lint` is not a check of these files, because Biome does not read Markdown.
+- [ ] **Step 6: Check.** `git grep -n "Upgrading to 9" -- README.md docs/src docs/superpowers/plans/completed/2026-11-22-claude-code-login-pass-through.md` prints nothing. Today it prints the two lines that Steps 1 and 5 replace (ran (second audit)). Read each changed paragraph once in the diff. `npm run lint` is not a check of these files, because Biome does not read Markdown.
 - [ ] **Step 7: Commit.** `docs: correct the upgrade note and the Claude login mode pages`
 
 Then open PR 1. Before it: `npm run typecheck`, `npm run lint`, `npm run test:architecture`, `LLMR_TEST_GATEWAY_ENTRY="$PWD/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js" npm run test:core`, `npm run test:ui`, `npm run test:electron`, and the two end-to-end specs this PR touches.
@@ -1130,7 +1130,7 @@ PR 146 merged before the pass-through plan's Gate B ran. So Gate B no longer gat
 
 **Researched again on 2026-11-24, and two recommendations changed.** VP-3: bring the app forward through `NSRunningApplication` by process id, which sends no Apple Event, in place of the usage string, the skipped activation and the docs line. VP-9: the placeholder key and a login behind it, which is a plugin of the draft's own, Codex's default address or a matching plugin of the config. VP-7 and VP-8 stand. The tasks are in [`2026-11-24-vm-pass-findings.md`](2026-11-24-vm-pass-findings.md) **Answered, 2026-11-24: the owner accepted all four as revised.** Building needs his word. Its Task 4 is VP-9, built in PR 3 between Tasks 8 and 9 here, and it changes Task 9's condition and one fixture. The paragraph below is the first recommendation, kept as written.
 
-**New on 2026-11-24, not answered.** The VM pass left four findings in this plan's area with no task. The research and a recommendation for each are in [`2026-11-24-decisions-vm-pass.md`](../research/2026-11-24-decisions-vm-pass.md), under "Decisions for the owner". VP-3, the macOS prompt for System Events on an app-profile open: add a usage string, skip the activation right after a fresh Claude Desktop launch, and add a docs line. VP-9, a provider whose key is the placeholder typed by hand shown as a local login: decide by a matching plugin, and only inside PR 3, where it changes Task 9's condition. VP-7, the settings file's mode going from 644 to 600: leave it and add a docs line. VP-8, backups that pile up: fold into the restore plan's fix round. If the owner accepts VP-3 or VP-9, the tasks are written into PR 3 and audited before it is built.
+**New on 2026-11-24, not answered.** The VM pass left four findings in this plan's area with no task. The research and a recommendation for each are in [`2026-11-24-decisions-vm-pass.md`](../../research/2026-11-24-decisions-vm-pass.md), under "Decisions for the owner". VP-3, the macOS prompt for System Events on an app-profile open: add a usage string, skip the activation right after a fresh Claude Desktop launch, and add a docs line. VP-9, a provider whose key is the placeholder typed by hand shown as a local login: decide by a matching plugin, and only inside PR 3, where it changes Task 9's condition. VP-7, the settings file's mode going from 644 to 600: leave it and add a docs line. VP-8, backups that pile up: fold into the restore plan's fix round. If the owner accepts VP-3 or VP-9, the tasks are written into PR 3 and audited before it is built.
 
 Where the nine questions stand on 2026-11-24, after the release and three research rounds. **On 2026-11-24 the owner accepted the recommendations of rows 4, 5 and 8**, so no question is open. He then ran a pass on his disposable VM with the released app, so that the task text rests on what the real app does. Rows 4 and 5 are now Tasks 8, 9 and 10 under "PR 3". Row 8 builds nothing. The scripts for that pass are outside the repo. The detail and the evidence are under each question below.
 

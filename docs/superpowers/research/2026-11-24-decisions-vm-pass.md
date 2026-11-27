@@ -1,6 +1,6 @@
 # VM pass on the released 9.0.0 app, 2026-11-24
 
-The owner accepted four recommendations on 2026-11-24 and then ran this pass, so that the tasks built from them rest on what the released app does. This record holds what was seen. The tasks are in [`2026-11-22-backlog-keys.md`](../plans/2026-11-22-backlog-keys.md) (Tasks 3 and 4) and [`2026-11-23-pass-through-follow-ups.md`](../plans/2026-11-23-pass-through-follow-ups.md) (PR 3).
+The owner accepted four recommendations on 2026-11-24 and then ran this pass, so that the tasks built from them rest on what the released app does. This record holds what was seen. The tasks are in [`2026-11-22-backlog-keys.md`](../plans/completed/2026-11-22-backlog-keys.md) (Tasks 3 and 4) and [`2026-11-23-pass-through-follow-ups.md`](../plans/completed/2026-11-23-pass-through-follow-ups.md) (PR 3).
 
 ## How this was checked
 
@@ -162,7 +162,7 @@ Read, not run. A shared-home profile is never a System default profile, so its s
 
 ## Second research pass, 2026-11-24
 
-Three researchers took the seven findings again at `main` `f7f38103`, each told to break the recommendation above. This time things were run. The session then read the leading claim of each report in the code, and ran one check itself. "Ran" marks what a researcher ran, "ran by the session" what the session ran, "read by the session" what it read again. The tasks are in [`docs/superpowers/plans/2026-11-24-vm-pass-findings.md`](../plans/2026-11-24-vm-pass-findings.md).
+Three researchers took the seven findings again at `main` `f7f38103`, each told to break the recommendation above. This time things were run. The session then read the leading claim of each report in the code, and ran one check itself. "Ran" marks what a researcher ran, "ran by the session" what the session ran, "read by the session" what it read again. The tasks are in [`docs/superpowers/plans/completed/2026-11-24-vm-pass-findings.md`](../plans/completed/2026-11-24-vm-pass-findings.md).
 
 ### Decisions for the owner, revised
 
