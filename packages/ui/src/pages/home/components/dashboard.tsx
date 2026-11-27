@@ -30,6 +30,7 @@ import {
   Rocket, Server, UsersRound, WalletCards, Wifi
 } from "lucide-react";
 import { Tooltip as UiTooltip, TooltipPortal } from "@/components/ui/tooltip";
+import type { PriceSourceStatus } from "@llmr/core/contracts/app";
 
 type OverviewUsageFilters = {
   modelFilter: string;
@@ -40,6 +41,12 @@ type OverviewUsageFilters = {
 };
 
 const emptyOverviewProviders: GatewayProviderConfig[] = [];
+
+const priceSourceLabels: Record<PriceSourceStatus["source"], string> = {
+  litellm: "LiteLLM",
+  "models.dev": "models.dev",
+  openrouter: "OpenRouter"
+};
 
 function chartTooltipPortal(): HTMLElement | null {
   return typeof document === "undefined" ? null : document.body;
@@ -407,6 +414,9 @@ export function OverviewView({
       </DragOverlay>
     </DndContext>
   );
+  const failingPriceSources = usageStats.priceSources
+    .filter((status) => status.failing)
+    .map((status) => priceSourceLabels[status.source]);
 
   return (
     <motion.div
@@ -466,6 +476,13 @@ export function OverviewView({
           </Button>
         </div>
       </div>
+      {failingPriceSources.length > 0 ? (
+        <div role="status">
+          <AnalysisNotice>
+            Prices could not be loaded from {new Intl.ListFormat("en", { type: "conjunction" }).format(failingPriceSources)}. Some request costs are missing or older until they load.
+          </AnalysisNotice>
+        </div>
+      ) : null}
 
       {editing ? (
         <div className="grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[220px_minmax(0,1fr)_260px]">

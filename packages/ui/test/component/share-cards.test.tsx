@@ -21,6 +21,7 @@ const emptyUsageStats: UsageStatsSnapshot = {
   clientModels: [],
   generatedAt: "2026-10-25T00:00:00.000Z",
   models: [],
+  priceSources: [],
   providerModels: [],
   range: "7d",
   recentRequests: [],

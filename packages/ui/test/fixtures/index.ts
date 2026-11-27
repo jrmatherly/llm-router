@@ -161,6 +161,7 @@ export function usageStats(range: UsageStatsRange = "30d", patch: Partial<UsageS
     ],
     generatedAt: "2026-06-30T00:00:00.000Z",
     models,
+    priceSources: [],
     providerModels: [
       usageRow("provider:openai", "OpenAI", { credentialId: "primary", model: "gpt-4.1", provider: "openai", totalTokens: 7200 }),
       usageRow("provider:anthropic", "Anthropic", { credentialId: "secondary", model: "claude-sonnet", provider: "anthropic", totalTokens: 4800 })

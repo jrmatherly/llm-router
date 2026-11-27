@@ -196,6 +196,7 @@ export function createEmptySnapshot(range: UsageStatsRange): UsageStatsSnapshot 
     clientModels: [],
     generatedAt: new Date().toISOString(),
     models: [],
+    priceSources: [],
     providerModels: [],
     range,
     recentRequests: [],

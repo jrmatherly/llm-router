@@ -19,6 +19,7 @@ export function createEmptyUsageStats(range: UsageStatsRange): UsageStatsSnapsho
     clientModels: [],
     generatedAt: new Date().toISOString(),
     models: [],
+    priceSources: [],
     providerModels: [],
     range,
     recentRequests: [],

@@ -12,6 +12,7 @@ import {
   resolveRequestPrice,
   unpricedCostSource,
   usagePriceCatalogNeedsRefresh,
+  usagePriceCatalogStatus,
   type RequestPriceOutcome,
   type UsageCostEstimate,
   type UsageCostInput
@@ -467,6 +468,7 @@ export class UsageStore {
       clientModels: readClientModelRows(database, query),
       generatedAt: now.toISOString(),
       models: readModelRows(database, query),
+      priceSources: usagePriceCatalogStatus(),
       providerModels: readProviderModelRows(database, query),
       range: normalizedRange,
       recentRequests: readRecentRequestRows(database, query),
@@ -1474,6 +1476,7 @@ function emptySnapshot(range: UsageStatsRange): UsageStatsSnapshot {
     clientModels: [],
     generatedAt: new Date().toISOString(),
     models: [],
+    priceSources: [],
     providerModels: [],
     range,
     recentRequests: [],

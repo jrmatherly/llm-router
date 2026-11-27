@@ -5,7 +5,8 @@ import {
   parseUsagePricingSource,
   preloadUsagePriceCatalog,
   providerModelPricingForUsage,
-  resolveRequestPrice
+  resolveRequestPrice,
+  usagePriceCatalogStatus
 } from "@llmr/core/models/pricing-service.ts";
 
 const pricing = {
@@ -549,5 +550,36 @@ test("a failing price source is logged once per failure streak, and an empty pay
     });
   } finally {
     warn.mock.restore();
+  }
+});
+
+test("each price source reports its last successful load and whether its latest load failed", async () => {
+  const originalFetch = globalThis.fetch;
+  let modelsDevUp = false;
+  globalThis.fetch = async (url) => {
+    const target = String(url);
+    if (target.includes("litellm")) return Response.json({ "m": { input_cost_per_token: 0.000001, output_cost_per_token: 0.000002 } });
+    if (target.includes("openrouter.ai")) return Response.json({ data: [{ id: "lab/m", pricing: { completion: "0.000001", prompt: "0.000001" } }] });
+    if (!modelsDevUp) throw new Error("offline");
+    return Response.json({ lab: { models: { m: { cost: { input: 1, output: 1 } } } } });
+  };
+  mock.timers.enable({ apis: ["Date"], now: Date.now() });
+  try {
+    await preloadUsagePriceCatalog({ forceRefresh: true });
+    const failing = usagePriceCatalogStatus();
+    assert.deepEqual(failing.map((status) => status.source), ["litellm", "models.dev", "openrouter"]);
+    assert.deepEqual(failing[1], { failing: true, source: "models.dev" });
+    assert.equal(typeof failing[0].loadedAt, "string");
+    assert.equal(failing[0].failing, undefined);
+
+    modelsDevUp = true;
+    mock.timers.tick(5 * 60 * 1000);
+    await preloadUsagePriceCatalog();
+    const loaded = usagePriceCatalogStatus()[1];
+    assert.equal(loaded.failing, undefined);
+    assert.equal(typeof loaded.loadedAt, "string");
+  } finally {
+    mock.timers.reset();
+    globalThis.fetch = originalFetch;
   }
 });

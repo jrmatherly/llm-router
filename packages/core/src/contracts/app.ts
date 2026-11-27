@@ -2422,10 +2422,17 @@ export type UsageComparisonRow = UsageTotals & {
   provider?: string;
 };
 
+export type PriceSourceStatus = {
+  failing?: true;
+  loadedAt?: string;
+  source: "litellm" | "models.dev" | "openrouter";
+};
+
 export type UsageStatsSnapshot = {
   clientModels: UsageComparisonRow[];
   generatedAt: string;
   models: UsageComparisonRow[];
+  priceSources: PriceSourceStatus[];
   providerModels: UsageComparisonRow[];
   range: UsageStatsRange;
   recentRequests: UsageComparisonRow[];
