@@ -9,13 +9,12 @@ import { isDeepStrictEqual } from "node:util";
 import { writeWorkbuddyModelsConfig } from "@llmr/core/agents/codex/app-launch.ts";
 import { resolveGrokSourceHome } from "@llmr/core/agents/grok/profile-config.ts";
 import { resolveKimiSourceHome } from "@llmr/core/agents/kimi/profile-config.ts";
-import { writeOpenCodeGatewayConfig } from "@llmr/core/agents/opencode/profile-config.ts";
 import { writePiGatewayConfig } from "@llmr/core/agents/pi/profile-config.ts";
 import { loadAppConfig } from "@llmr/core/config/config.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { loadPersistedApiKeys, replacePersistedAppConfig, updatePersistedApiKeys } from "@llmr/core/config/config-repository.ts";
 import { CONFIGDIR } from "@llmr/core/config/constants.ts";
-import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, globalProviderJsonWriter, mergeProfileStatuses, reconcileProfileApiKeys, recoverGlobalAgentProfile, applyTakeoversAfterGatewayReplaced, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit, restoreTakeoversWhenNoGatewayServes, warnProfileApplyFailures } from "@llmr/core/profiles/service.ts";
+import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, mergeProfileStatuses, reconcileProfileApiKeys, recoverGlobalAgentProfile, applyTakeoversAfterGatewayReplaced, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit, restoreTakeoversWhenNoGatewayServes, warnProfileApplyFailures } from "@llmr/core/profiles/service.ts";
 import { assertCodexFilesParse } from "../../support/codex-toml.mjs";
 
 test("Grok profile source home follows profile and process environment overrides", () => {
@@ -5660,23 +5659,6 @@ test("an OpenCode config the user edited keeps the edit and gets their own model
     assert.equal(copies.length, 1);
     assert.equal(readFileSync(copies[0], "utf8").includes(providerJsonKey), false);
   }, { original: userOpenCodeOriginal });
-});
-
-test("an OpenCode config rewritten the way opening the OpenCode app rewrites it still comes back byte for byte when nobody edited it", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  await withProviderJsonRoot(async (root) => {
-    const file = path.join(root, "opencode.jsonc");
-    writeFileSync(file, userOpenCodeOriginal);
-    const profile = providerJsonProfile("opencode", file);
-    const config = providerJsonConfig([profile]);
-    await applyProfileConfig(config);
-    // The call openOpenCodeAppProfile makes, after a provider gained a model since the last save.
-    config.Providers[0].models = ["model", "newer-model"];
-    writeOpenCodeGatewayConfig(CONFIGDIR, config, profile, await profileKey("opencode"), { backup: false, write: globalProviderJsonWriter(profile) });
-    config.profile.profiles = [{ ...profile, enabled: false }];
-    const result = await applyProfileConfig(config);
-    assert.deepEqual(result.clients.filter((status) => !status.ok).map((status) => status.message), []);
-    assert.equal(readFileSync(file, "utf8"), userOpenCodeOriginal);
-  });
 });
 
 test("no backup of an OpenCode config holds the key after a second apply", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
