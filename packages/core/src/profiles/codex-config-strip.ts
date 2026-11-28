@@ -38,6 +38,24 @@ export function removeCodexProviderTable(source: string, providerId: string): st
   return joinStatements(scanTomlStatements(source).filter(({ table }) => !isProviderTableOrChild(table, removed)));
 }
 
+// Codex loads a provider defined by a dotted key or an inline table, and LLMR's own header beside one stops the file loading.
+export function headerlessCodexProviderTable(source: string, providerId: string): "own-id" | "root-inline" | undefined {
+  const id = tomlKey(providerId);
+  const isOwnId = (key: string, prefix: string) => key === `${prefix}${id}` || key.startsWith(`${prefix}${id}.`);
+  for (const { key, table } of scanTomlStatements(source)) {
+    if (key === undefined) {
+      continue;
+    }
+    if (table === "" && key === "model_providers") {
+      return "root-inline";
+    }
+    if ((table === "" && isOwnId(key, "model_providers.")) || (table === "model_providers" && isOwnId(key, ""))) {
+      return "own-id";
+    }
+  }
+  return undefined;
+}
+
 function providerTablePath(providerId: string): string {
   return `model_providers.${tomlKey(providerId)}`;
 }

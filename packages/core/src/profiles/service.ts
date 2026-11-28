@@ -58,6 +58,7 @@ import {
   collapseBlankStatements,
   decideCodexRootLines,
   firstCodexTableIndex,
+  headerlessCodexProviderTable,
   isManagedCodexConfigContent,
   isRootKeyInsideManagedBlock,
   managedConfiguredModel,
@@ -744,6 +745,13 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
     const providerName = profile.providerName?.trim() || "LLM Router";
     const model = normalizeClientModel(profile.model) || defaultClientModel(config);
     const source = existsSync(configFile) ? readFileSync(configFile, "utf8") : "";
+    const headerless = headerlessCodexProviderTable(source, providerId);
+    if (headerless === "own-id") {
+      return refusedProfileStatus(profile, configFile, `${configFile} defines the provider "${providerId}" without its own [model_providers.${providerId}] header, so Codex would not start once LLMR adds its table. Move that provider under its own header, or set this profile's providerId in LLM Router's config to another id. LLMR left ${configFile} unchanged.`);
+    }
+    if (headerless === "root-inline") {
+      return refusedProfileStatus(profile, configFile, `${configFile} defines model_providers on one line, so Codex would not start once LLMR adds its table. Write each provider under its own [model_providers.<name>] header. LLMR left ${configFile} unchanged.`);
+    }
     const configFormat = normalizeCodexConfigFormat(profile.configFormat);
     const modelCatalogFile = codexModelCatalogFile(configFile);
     const profileWithResolvedModel = { ...profile, model };

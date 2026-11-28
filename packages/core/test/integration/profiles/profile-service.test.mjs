@@ -8146,6 +8146,68 @@ test("a reserved Codex provider id is refused after it is sanitized", { skip: !p
   }
 });
 
+test("a Codex apply is refused when the user's config defines a provider LLMR cannot write beside", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const B = 'base_url = "http://127.0.0.1:9/v1"';
+  const ownId = /defines the provider "llm-router" without its own \[model_providers\.llm-router\] header/;
+  const rootInline = /defines model_providers on one line/;
+  const forms = {
+    dottedRoot: [`model_providers.llm-router.name = "Mine"\nmodel_providers.llm-router.${B}\n`, ownId],
+    dottedUnderSuper: [`[model_providers]\nllm-router.name = "Mine"\nllm-router.${B}\n`, ownId],
+    inlineUnderSuper: [`[model_providers]\nllm-router = { name = "Mine", ${B} }\n`, ownId],
+    quotedDottedRoot: [`model_providers."llm-router".name = "Mine"\nmodel_providers."llm-router".${B}\n`, ownId],
+    inlineRoot: [`model_providers = { llm-router = { name = "Mine", ${B} } }\n`, rootInline],
+    inlineRootOtherId: [`model_providers = { mine = { name = "Mine", ${B} } }\n`, rootInline]
+  };
+  for (const [name, [original, message]] of Object.entries(forms)) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+      const codex = (await applyProfileConfig(config)).clients.find((client) => client.client === "codex");
+      assert.equal(codex?.ok, false, name);
+      assert.match(codex.message, message, name);
+      assert.match(codex.message, /LLMR left .* unchanged\./, name);
+      assert.equal(readFileSync(codexConfigFile, "utf8"), original, name);
+      assert.deepEqual(readdirSync(codexDir), ["config.toml"], name);
+    }, plantCodexOriginal(original), { applied: false });
+  }
+});
+
+test("a Codex apply goes ahead over a provider of another id written with no header", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const B = 'base_url = "http://127.0.0.1:9/v1"';
+  const forms = {
+    dottedRootOtherId: `model_providers.mine.name = "Mine"\nmodel_providers.mine.${B}\n`,
+    inlineUnderSuperOtherId: `[model_providers]\nmine = { name = "Mine", ${B} }\n`
+  };
+  for (const [name, original] of Object.entries(forms)) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
+      const codex = (await applyProfileConfig(config)).clients.find((client) => client.client === "codex");
+      assert.equal(codex?.ok, true, name);
+    }, plantCodexOriginal(original), { applied: false });
+  }
+});
+
+test("a provider id that only starts with the profile's id is not refused", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = `model_providers.llm-router-old.name = "Mine"\nmodel_providers.llm-router-old.base_url = "http://127.0.0.1:9/v1"\n`;
+  await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
+    const codex = (await applyProfileConfig(config)).clients.find((client) => client.client === "codex");
+    assert.equal(codex?.ok, true, codex?.message);
+  }, plantCodexOriginal(original), { applied: false });
+});
+
+test("a config 9.1.0 already doubled is refused on the next apply, and the switch-off removes LLMR's table", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, config }) => {
+    const doubled = `model_providers.llm-router.name = "Mine"\n${readFileSync(codexConfigFile, "utf8")}`;
+    writeFileSync(codexConfigFile, doubled);
+    const codex = (await applyProfileConfig(config)).clients.find((client) => client.client === "codex");
+    assert.equal(codex?.ok, false);
+    assert.match(codex.message, /without its own \[model_providers\.llm-router\] header/);
+    assert.equal(readFileSync(codexConfigFile, "utf8"), doubled);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    const restored = readFileSync(codexConfigFile, "utf8");
+    assert.doesNotMatch(restored, /\[model_providers\.llm-router\]/);
+    assert.doesNotMatch(restored, /llmr-profile-/);
+  }, plantCodexOriginal(), { parseAfter: false });
+});
+
 test("a disabled Codex profile with a reserved provider id beside the enabled one is not refused", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
     const status = await applyProfileConfig(config);
