@@ -40,10 +40,10 @@ No task starts before the owner answers its row. A row he answers with "no" take
 
 | Task | Row | Round two's recommendation | His answer |
 |---|---|---|---|
-| 1 | F-PRICE-3, F-PRICE-36 | A zero that is the request's own provider's offer is a price of zero, and a zero offer leads to no maker's price | open |
-| 2 | F-CODEX-1 | Refuse an apply over a provider written with no header of its own | open |
-| 3 | F-UI-1 | A saved local login shows grey until checked, green on a pass, amber on a failure | open |
-| 4 | F-LABEL-1 | A request is named by its key in both layouts | open |
+| 1 | F-PRICE-3, F-PRICE-36 | A zero that is the request's own provider's offer is a price of zero, and a zero offer leads to no maker's price | yes, 2026-11-27. Not built |
+| 2 | F-CODEX-1 | Refuse an apply over a provider written with no header of its own | yes, 2026-11-27. Not built |
+| 3 | F-UI-1 | A saved local login shows grey until checked, green on a pass, amber on a failure | yes, 2026-11-27. Not built |
+| 4 | F-LABEL-1 | A request is named by its key in both layouts | yes, 2026-11-27. Not built |
 | 5, 7 | F-TEST-13, F-TEST-1 | Fix one test fault and prove route scripts run side by side | yes, 2026-11-27. **Merged, PR 182, `05ce1d74`** |
 | 8 | F-TEST-3 | Make the Windows and Intel Mac jobs required checks | open. Task 5 is merged; Windows has passed once since, on the PR |
 | 9 | F-TEST-5 | Dependabot version updates, and close Renovate's PR 168 | open |
