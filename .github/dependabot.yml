@@ -1,44 +1,6 @@
+# Renovate (renovate.json) moves what this repository pins: the SHA-pinned
+# GitHub Actions, the Dockerfile base digest, the compose images and the npm
+# packages. No version updates here, so the two bots never open the same bump.
+# Dependabot security updates are a repository setting and do not read this file.
 version: 2
-updates:
-  - package-ecosystem: github-actions
-    directory: "/"
-    schedule:
-      interval: weekly
-    groups:
-      actions:
-        patterns:
-          - "*"
-    commit-message:
-      prefix: "ci"
-  - package-ecosystem: npm
-    directory: "/"
-    schedule:
-      interval: weekly
-    groups:
-      npm:
-        patterns:
-          - "*"
-    ignore:
-      - dependency-name: "@the-next-ai/ai-gateway"
-    commit-message:
-      prefix: "chore"
-  - package-ecosystem: npm
-    directory: "/docs"
-    schedule:
-      interval: weekly
-    groups:
-      docs:
-        patterns:
-          - "*"
-    commit-message:
-      prefix: "chore"
-  - package-ecosystem: docker-compose
-    directory: "/docker/claude-apps-gateway"
-    schedule:
-      interval: weekly
-    groups:
-      compose:
-        patterns:
-          - "*"
-    commit-message:
-      prefix: "chore"
+updates: []

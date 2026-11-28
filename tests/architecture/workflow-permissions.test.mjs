@@ -105,11 +105,13 @@ test("docs build on pull requests, deploy only from main, and every job has a ti
   for (const [name, block] of jobs) assert.match(block, /^ {4}timeout-minutes: \d+$/m, name);
 });
 
-test("Dependabot covers both lockfiles, the workflows and the compose images", () => {
-  const config = readFileSync(".github/dependabot.yml", "utf8");
-  for (const [ecosystem, directory] of [["github-actions", "/"], ["npm", "/"], ["npm", "/docs"], ["docker-compose", "/docker/claude-apps-gateway"]]) {
-    assert.match(config, new RegExp(`- package-ecosystem: ${ecosystem}\\n    directory: "${directory}"\\n`), `${ecosystem} ${directory}`);
+test("Renovate covers the lockfiles, the workflows and the images, and Dependabot opens no version update", () => {
+  const renovate = JSON.parse(readFileSync("renovate.json", "utf8"));
+  for (const manager of ["github-actions", "npm", "dockerfile", "docker-compose"]) {
+    assert.ok(renovate.enabledManagers.includes(manager), manager);
   }
+  assert.equal(renovate.forkProcessing, "enabled", "the repository is a fork, which Renovate skips without this");
+  assert.match(readFileSync(".github/dependabot.yml", "utf8"), /^updates: \[\]$/m);
 });
 
 test("the package suites also run on Windows and an Intel Mac", () => {

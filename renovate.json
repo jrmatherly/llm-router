@@ -1,0 +1,102 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", ":semanticCommits"],
+  "description": "Scope: what this repository pins. Workflow actions by commit, the Dockerfile base image by digest, the compose images of the Claude apps gateway harness, and the npm packages of the workspace and of docs. The fork's divergence from upstream is intended, so its npm pins are its own. Raised by hand: the Node major (.node-version, engines, the workflows and the Dockerfile tag together) and the gateway fork tarball. Security fixes come from Dependabot security updates (a repository setting), which Renovate would raise a second time.",
+  "enabledManagers": ["github-actions", "npm", "dockerfile", "docker-compose", "custom.regex"],
+  "forkProcessing": "enabled",
+  "timezone": "America/New_York",
+  "minimumReleaseAge": "7 days",
+  "vulnerabilityAlerts": {
+    "enabled": false
+  },
+  "labels": ["dependencies"],
+  "schedule": ["before 7am on monday"],
+  "prHourlyLimit": 3,
+  "prConcurrentLimit": 5,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "biome.json names the schema of the Biome version package.json pins, and tests/architecture/package-scripts.test.mjs fails when the two differ",
+      "managerFilePatterns": ["/^biome\\.json$/"],
+      "matchStrings": ["biomejs\\.dev/schemas/(?<currentValue>\\d+\\.\\d+\\.\\d+)/schema\\.json"],
+      "depNameTemplate": "@biomejs/biome",
+      "datasourceTemplate": "npm"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Workflow actions: one PR, each pinned to a commit with its tag in a comment",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "semanticCommitType": "ci",
+      "automerge": false
+    },
+    {
+      "description": "Minor and patch npm updates of the workspace in one PR. A major arrives as its own PR, since most need code.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm dependencies",
+      "automerge": false
+    },
+    {
+      "description": "The docs site has its own lockfile and its own workflow",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["docs/**"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "docs dependencies",
+      "automerge": false
+    },
+    {
+      "description": "Each has an install script that allowScripts in the root package.json approves by version. After a bump run `npm install-scripts approve <pkg>` on the PR's branch, or the script is skipped and CI still passes.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["electron-winstaller", "esbuild", "@parcel/watcher", "fsevents", "better-sqlite3"],
+      "groupName": "packages with install scripts",
+      "automerge": false
+    },
+    {
+      "description": "Electron and its builder in their own PR, so the e2e job on it tests only them. better-sqlite3 loads in Electron's V8, so read that job before merging.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["electron", "electron-builder"],
+      "groupName": "Electron",
+      "automerge": false
+    },
+    {
+      "description": "Biome is pinned exactly, and biome.json names the same version. Move both in one PR.",
+      "matchPackageNames": ["@biomejs/biome"],
+      "groupName": "Biome",
+      "automerge": false
+    },
+    {
+      "description": "The gateway is the fork's release tarball. Raise it by hand after a fork release.",
+      "matchPackageNames": ["@the-next-ai/ai-gateway"],
+      "enabled": false
+    },
+    {
+      "description": "The Node major is set in .node-version, engines, the workflows and the Dockerfile tag. Raise them by hand in one change.",
+      "matchDatasources": ["node-version"],
+      "enabled": false
+    },
+    {
+      "description": "@types/node follows the Node major the project runs",
+      "matchPackageNames": ["@types/node"],
+      "allowedVersions": "<25"
+    },
+    {
+      "description": "The Dockerfile tag is the Node major. Only a rebuilt digest of that tag moves here.",
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["dockerfile"],
+      "groupName": "Docker base digest",
+      "automerge": false
+    },
+    {
+      "description": "The Postgres and Dex images of the Claude apps gateway test harness",
+      "matchManagers": ["docker-compose"],
+      "groupName": "compose harness images",
+      "automerge": false
+    }
+  ]
+}
