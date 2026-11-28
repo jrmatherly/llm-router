@@ -85,6 +85,7 @@ export default defineConfig({
         "@": new URL("./../packages/ui/src", import.meta.url).pathname,
         "@llmr/core": new URL("./../packages/core/src", import.meta.url).pathname,
       },
+      dedupe: ["react", "react-dom"],
     },
   },
   markdown: {
