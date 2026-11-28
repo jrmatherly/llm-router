@@ -2,7 +2,7 @@
 
 > **Status, 2026-11-25: written, audited once on another model with its three blockers and sixteen corrections applied, not built.** No task here is built and none is merged. Building needs the owner's word, as does the merge.
 
-> **Delivery.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) orders the unbuilt work. This plan asks to be its next batch after batch 17, which merged as PR 160 on 2026-11-25. "Where this fits" says what it must not be open beside. Where that file and this one disagree on order or branch, that file is right.
+> **Delivery.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) orders the unbuilt work. No task of this plan is built (checked against `main` on 2026-11-28). It is not a batch: by decision 8 of that file it is built after the release, and 9.1.0 is released. Where it sits beside the remediation plan is the owner's call and is not recorded. Batch 17, which it needed, merged as PR 160 on 2026-11-25. "Where this fits" says what it must not be open beside. Where that file and this one disagree on order or branch, that file is right.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -14,7 +14,7 @@
 
 **Spec:** [`docs/superpowers/specs/2026-11-24-claude-apps-gateway-management.md`](../specs/2026-11-24-claude-apps-gateway-management.md). Gap ids G-1 and G-2 come from it. Read "Owner's decisions" (D-1 to D-6), "The data shape", "One page, sections by capability", and decisions O-3, O-4, O-10 and O-11 before you start. This plan is the spec's phase 1.
 
-**Built after** [`2026-11-25-apps-gateway-phase-0.md`](2026-11-25-apps-gateway-phase-0.md), Tasks 1 to 4 (batch 17, merged as PR 160). It uses that plan's test of the web bridge's method names, its single declaration of the view ids, and its harness.
+**Built after** [`2026-11-25-apps-gateway-phase-0.md`](completed/2026-11-25-apps-gateway-phase-0.md), Tasks 1 to 4 (batch 17, merged as PR 160). It uses that plan's test of the web bridge's method names, its single declaration of the view ids, and its harness.
 
 **Evidence status.** A survey agent read every file and symbol named below at `main` `0be5ad63` on 2026-11-25, and its notes are kept by the plan author and not in the repo. The plan author re-read the theme writer, the config revision rule, the login's persist step and its wait loop, the gateway request helper, the API key save and the interface's key save. A second model then audited the plan against `main` `0ebbdd53` by reading, and ran no test. The gateway answers this plan relies on were run on 2026-11-25 against Claude Code 2.1.332 on the local harness, with a scratch home: the admin route for an admin, for a non-admin and with no `admin:` block, the version header, and the landing page. No test in this plan was run.
 

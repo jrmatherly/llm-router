@@ -139,7 +139,7 @@ The owner asked for a deeper round on groups B, C and D. Four runs on another mo
 
 | Question | Default |
 |---|---|
-| The gateway phase 0 plan's status line still says Task 5 is not built. Another session owns the file | This session corrects the one line on his word |
+| The gateway phase 0 plan's status line still says Task 5 is not built. No other session owns the file | Corrected on 2026-11-28, and the plan moved to `completed/` |
 | Run restore Task 9 before or after the release | After. The research recommends it, and it changes no product code |
 
 ## Review Focus

@@ -1,8 +1,8 @@
 # Claude Apps Gateway Management, Phase 0 Implementation Plan
 
-> **Status, 2026-11-25: Tasks 1 to 4 are built and merged as PR 160 (`922626dc`). Task 5 is not built and is the last commit of batch 16.** The plan was written and audited once on another model with its three blockers and nine corrections applied. Building each PR needs the owner's word, as does each merge.
+> **Status, 2026-11-28: built in full. Tasks 1 to 4 merged as PR 160 (`922626dc`) and Task 5 as part of batch 16, PR 174 (`1768107e`). Task 4 Step 6 items 3 to 5 were not run and are OFF-1 in the VM checklist. The checkboxes below were not kept. The status as written on 2026-11-25 follows.** The plan was written and audited once on another model with its three blockers and nine corrections applied. Building each PR needs the owner's word, as does each merge.
 
-> **Delivery.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) lists Tasks 1 to 4 as its batch 17 and Task 5 as the last commit of its batch 16. "Where this fits" below repeats that. Where that file and this one disagree on order or branch, that file is right.
+> **Delivery.** [`2026-11-25-delivery-order.md`](../2026-11-25-delivery-order.md) lists Tasks 1 to 4 as its batch 17 and Task 5 as the last commit of its batch 16. "Where this fits" below repeats that. Where that file and this one disagree on order or branch, that file is right.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -12,7 +12,7 @@
 
 **Tech Stack:** TypeScript, `better-sqlite3`, Electron 45, React, `node:test` with `node:assert/strict`.
 
-**Spec:** [`docs/superpowers/specs/2026-11-24-claude-apps-gateway-management.md`](../specs/2026-11-24-claude-apps-gateway-management.md). Gap ids G-3, G-5, G-6, G-13 to G-16 come from it. Read "Owner's decisions" (D-1 to D-6), "Decisions on the researched questions" and "Identity from a gateway that forwards to LLMR" before you start. This plan is the spec's phase 0.
+**Spec:** [`docs/superpowers/specs/2026-11-24-claude-apps-gateway-management.md`](../../specs/2026-11-24-claude-apps-gateway-management.md). Gap ids G-3, G-5, G-6, G-13 to G-16 come from it. Read "Owner's decisions" (D-1 to D-6), "Decisions on the researched questions" and "Identity from a gateway that forwards to LLMR" before you start. This plan is the spec's phase 0.
 
 **Evidence status.** The plan author read every file and symbol named below at `main` between `25e1828c` and `dfd71f1d` on 2026-11-24 and 2026-11-25. Three things were run. The test of Task 1 ran as written against `main` and passed, and failed as it should when one handler was removed from a copy of the server file. The local harness ran six times on Claude Code 2.1.332 with a scratch `HOME` and `CLAUDE_CONFIG_DIR`, an environment of five names, and booted every time. In those runs the gateway wrote `.claude.json` and `backups/` into `CLAUDE_CONFIG_DIR`. Nothing else in this plan was run. The facts of Task 5 come from a survey agent's reading, kept in the author's notes and not in the repo, and Task 5 says which of them to read again.
 
@@ -20,7 +20,7 @@
 
 **From the spec, all accepted by the owner on 2026-11-24.** The fork has no consumers, so `client` changes meaning with no compatibility path. An API key carries a mark that lets it forward identity. The usage and request-log rows gain a forwarded user id and e-mail apart from `client`.
 
-**From the delivery order, decision 7 under "The owner's decisions", 2026-11-25.** Batch 16 builds client label Tasks 3, 1 and 2 and then Task 5 of this plan, in one PR. The client label plan ([`2026-11-22-backlog-client-label.md`](completed/2026-11-22-backlog-client-label.md), batch 16) already builds the per-key mark, as `trustedForwarder`, and the rule that only a marked key's identity headers count. That is the spec's G-5. This plan does not build G-5. It adds G-6 on top as the last commit of the same branch, so the two are reviewed and merged together. If the owner picks another answer to that item, Task 5 is rewritten and Tasks 1 to 4 do not change.
+**From the delivery order, decision 7 under "The owner's decisions", 2026-11-25.** Batch 16 builds client label Tasks 3, 1 and 2 and then Task 5 of this plan, in one PR. The client label plan ([`2026-11-22-backlog-client-label.md`](2026-11-22-backlog-client-label.md), batch 16) already builds the per-key mark, as `trustedForwarder`, and the rule that only a marked key's identity headers count. That is the spec's G-5. This plan does not build G-5. It adds G-6 on top as the last commit of the same branch, so the two are reviewed and merged together. If the owner picks another answer to that item, Task 5 is rewritten and Tasks 1 to 4 do not change.
 
 **Plan author, changeable in review without reopening the plan:**
 
