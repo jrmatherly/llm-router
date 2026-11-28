@@ -85,7 +85,7 @@
     "electron": "^45.3.3",
     "electron-builder": "26.18.1",
     "esbuild": "^0.28.2",
-    "js-yaml": "^4.3.2",
+    "js-yaml": "^5.0.0",
     "lucide-react": "^1.17.0",
     "motion": "^14.14.0",
     "react": "^18.3.1",
@@ -100,8 +100,7 @@
     "@the-next-ai/ai-gateway": {
       "glob": "14.0.4"
     },
-    "@types/react": "$@types/react",
-    "js-yaml": "$js-yaml"
+    "@types/react": "$@types/react"
   },
   "allowScripts": {
     "electron-winstaller@5.4.0": true,
