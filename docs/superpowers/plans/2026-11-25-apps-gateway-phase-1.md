@@ -2,7 +2,7 @@
 
 > **Status, 2026-11-25: written, audited once on another model with its three blockers and sixteen corrections applied, not built.** No task here is built and none is merged. Building needs the owner's word, as does the merge.
 
-> **Delivery.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) orders the unbuilt work. This plan asks to be its next batch after batch 17. "Where this fits" says what it must not be open beside. Where that file and this one disagree on order or branch, that file is right.
+> **Delivery.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) orders the unbuilt work. This plan asks to be its next batch after batch 17, which merged as PR 160 on 2026-11-25. "Where this fits" says what it must not be open beside. Where that file and this one disagree on order or branch, that file is right.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -14,7 +14,7 @@
 
 **Spec:** [`docs/superpowers/specs/2026-11-24-claude-apps-gateway-management.md`](../specs/2026-11-24-claude-apps-gateway-management.md). Gap ids G-1 and G-2 come from it. Read "Owner's decisions" (D-1 to D-6), "The data shape", "One page, sections by capability", and decisions O-3, O-4, O-10 and O-11 before you start. This plan is the spec's phase 1.
 
-**Built after** [`2026-11-25-apps-gateway-phase-0.md`](2026-11-25-apps-gateway-phase-0.md), Tasks 1 to 4 (batch 17). It uses that plan's test of the web bridge's method names, its single declaration of the view ids, and its harness.
+**Built after** [`2026-11-25-apps-gateway-phase-0.md`](2026-11-25-apps-gateway-phase-0.md), Tasks 1 to 4 (batch 17, merged as PR 160). It uses that plan's test of the web bridge's method names, its single declaration of the view ids, and its harness.
 
 **Evidence status.** A survey agent read every file and symbol named below at `main` `0be5ad63` on 2026-11-25, and its notes are kept by the plan author and not in the repo. The plan author re-read the theme writer, the config revision rule, the login's persist step and its wait loop, the gateway request helper, the API key save and the interface's key save. A second model then audited the plan against `main` `0ebbdd53` by reading, and ran no test. The gateway answers this plan relies on were run on 2026-11-25 against Claude Code 2.1.332 on the local harness, with a scratch home: the admin route for an admin, for a non-admin and with no `admin:` block, the version header, and the landing page. No test in this plan was run.
 
@@ -89,7 +89,7 @@ Each line is a condition no task's first test covers. The test that pins it is i
 
 | Branch | Tasks | Meets these delivery batches | Build it |
 |---|---|---|---|
-| `feat/apps-gateway-page` | 1 to 6, one commit each | Batch 17 is phase 0's Tasks 1 to 4. Batch 8 rewrites the `saveConfig` handler in `ipc.ts` and `management-server.ts`. Batches 8, 14 and 16 edit `contracts/app.ts`. Batches 2, 8 and 12 edit `App.tsx`. Batch 16 edits the gateway guide, which Task 6 edits too | After batch 17. Not open beside batch 8 or batch 16. If reviewers cannot hold six commits, split after Task 3: Tasks 1 to 3 are core with tests and no interface, Tasks 4 to 6 are the page |
+| `feat/apps-gateway-page` | 1 to 6, one commit each | Batch 17 is phase 0's Tasks 1 to 4. Batch 8 rewrites the `saveConfig` handler in `ipc.ts` and `management-server.ts`. Batches 8, 14 and 16 edit `contracts/app.ts`. Batches 2, 8 and 12 edit `App.tsx`. Batch 16 edits the gateway guide, which Task 6 edits too | Batches 8, 16 and 17 are merged (PRs 167, 174 and 160), so nothing named here is open and this branch rebases on none of them. If reviewers cannot hold six commits, split after Task 3: Tasks 1 to 3 are core with tests and no interface, Tasks 4 to 6 are the page |
 
 ## Not in this plan
 
@@ -423,7 +423,7 @@ Expected: the build fails on the missing component. Not run.
 
 Run: the command of Step 2. Expected: PASS.
 Run: `npm run typecheck && npm run lint && npm run test:architecture && npm run test:ui`
-Expected: all pass. `tests/e2e/` clicks sidebar entries by exact name, so no spec there changes. Run `npm run test:e2e` once if the Playwright browsers are installed, and restore `packages/core/models.json` and `packages/ui/src/generated` afterwards.
+Expected: all pass. `tests/e2e/` clicks sidebar entries by exact name, so no spec there changes. `npm run test:e2e` is left to CI. It opens the real Electron window on the owner's Mac.
 
 - [ ] **Step 5: Commit.** Subject: `feat(apps-gateway): a page that shows a gateway's status and who is signed in`
 
