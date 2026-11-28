@@ -760,3 +760,40 @@ test("a zero the request's own provider lists is a price of zero, and a zero off
     assert.equal(costBasisFor({ billableTokens: 11, costSource: "listed-free", costUsd: 0 }), "listed");
   });
 });
+
+const zeroConfig = { Providers: [{ ...customProvider, models: ["x", "free-model", "y"] }] };
+
+test("the maker step does not read a zero: a maker listed at zero leaves the reseller median", async () => {
+  const modelsDev = {
+    ...otherCatalogs.modelsDev,
+    host: { models: { x: { canonical_model_id: "lab/x", cost: { input: 1, output: 2 } } } },
+    lab: { models: { x: { cost: { input: 0, output: 0 } } } }
+  };
+  await withPriceCatalogs({ modelsDev }, () => {
+    assert.deepEqual(resolveRequestPrice(zeroConfig, "VM Custom", "x"), priced({
+      pricing: { inputUsdPerMillionTokens: 1, outputUsdPerMillionTokens: 2 },
+      source: "models.dev-median"
+    }));
+  });
+});
+
+test("the LiteLLM step does not read a zero", async () => {
+  const liteLlm = { ...otherCatalogs.liteLlm, "free-model": { input_cost_per_token: 0, output_cost_per_token: 0 } };
+  await withPriceCatalogs({ liteLlm }, () => {
+    assert.deepEqual(resolveRequestPrice(zeroConfig, "VM Custom", "free-model"), { state: "unpriced" });
+  });
+});
+
+test("an offer with input 0 and a real output price still names its maker", async () => {
+  const modelsDev = {
+    ...otherCatalogs.modelsDev,
+    host: { models: { y: { canonical_model_id: "lab/y", cost: { input: 0, output: 5 } } } },
+    lab: { models: { y: { cost: { input: 1, output: 3 } } } }
+  };
+  await withPriceCatalogs({ modelsDev }, () => {
+    assert.deepEqual(resolveRequestPrice(zeroConfig, "VM Custom", "y"), priced({
+      pricing: { inputUsdPerMillionTokens: 1, outputUsdPerMillionTokens: 3 },
+      source: "models.dev"
+    }));
+  });
+});

@@ -548,6 +548,7 @@ async function fetchModelsDevPrices(): Promise<PriceIndex> {
       const offers = index.byBareName.get(bare) ?? { canonicalIds: new Set(), offerKeys: new Set() };
       offers.offerKeys.add(key);
       const cost = isRecord(model.cost) ? model.cost : {};
+      // A zero offer names no maker: a free alias is not the maker's model.
       if (canonicalModelId && !(readNumber(cost.input) === 0 && readNumber(cost.output) === 0)) offers.canonicalIds.add(canonicalModelId);
       index.byBareName.set(bare, offers);
       const tiers = (Array.isArray(cost.tiers) ? cost.tiers : []).filter(isRecord).map((tier) => ({
