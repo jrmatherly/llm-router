@@ -378,9 +378,9 @@ for (const [name, layout] of [["single", "single"], ["compat", "compat"], ["sing
     const database = await usageStore.getDatabase();
     const usageRows = (kind) => database.prepare("SELECT client FROM usage_events WHERE model = ?").all(modelFor(kind));
     const expected = {
-      marked: layout === "compat" ? "forwarder" : "Node.js",
-      profile: layout === "compat" ? "profile:codex" : "Node.js",
-      unmarked: layout === "compat" ? "wire" : "Node.js"
+      marked: "forwarder",
+      profile: "profile:codex",
+      unmarked: "wire"
     };
     for (const [kind, client] of Object.entries(expected)) {
       await until(() => usageRows(kind).length > 0, 20000);
@@ -418,19 +418,19 @@ for (const layout of ["single", "compat"]) {
     const forged = { "x-auth-api-key-id": "forwarder", "x-auth-sub": "forwarder" };
     const single = layout === "single";
     const cases = [
-      ["marked-identity", "forwarder", identity("dev@example.com"), single ? "Node.js" : "forwarder"],
-      ["marked-bare", "forwarder", {}, single ? "Node.js" : "forwarder"],
+      ["marked-identity", "forwarder", identity("dev@example.com"), "forwarder"],
+      ["marked-bare", "forwarder", {}, "forwarder"],
       ["marked-display", "forwarder", { ...identity("dev@example.com"), "x-llmr-client": "Tool" }, "Tool"],
-      ["marked-litellm-only", "forwarder", { "x-litellm-end-user-id": "lite@example.com" }, single ? "Node.js" : "forwarder"],
-      ["marked-id-only", "forwarder", { "x-claude-gateway-user-id": "sub-123" }, single ? "Node.js" : "forwarder"],
-      ["marked-long-email", "forwarder", { "x-claude-gateway-user-email": `${"a".repeat(300)}@example.com` }, single ? "Node.js" : "forwarder"],
-      ["plain-forged", "wire", { ...forged, ...identity("other@example.com") }, single ? "Node.js" : "wire"],
+      ["marked-litellm-only", "forwarder", { "x-litellm-end-user-id": "lite@example.com" }, "forwarder"],
+      ["marked-id-only", "forwarder", { "x-claude-gateway-user-id": "sub-123" }, "forwarder"],
+      ["marked-long-email", "forwarder", { "x-claude-gateway-user-email": `${"a".repeat(300)}@example.com` }, "forwarder"],
+      ["plain-forged", "wire", { ...forged, ...identity("other@example.com") }, "wire"],
       ["plain-display", "wire", { "x-client-name": "MyTool" }, "MyTool"],
       ["plain-long-display", "wire", { "x-llmr-client": "c".repeat(300) }, "c".repeat(120)],
-      ["plain-long-agent", "wire", { "user-agent": `${"u".repeat(300)}/1.0` }, single ? "u".repeat(120) : "wire"],
-      ["plain-cert", "wire", { "x-forwarded-client-cert": "By=spiffe://a;Hash=b" }, single ? "Node.js" : "wire"],
-      ["profile-marked", "profile:codex", identity("other@example.com"), single ? "Node.js" : "Profile: Codex"],
-      ["long-key-name", "long", {}, single ? "Node.js" : "n".repeat(120)],
+      ["plain-long-agent", "wire", { "user-agent": `${"u".repeat(300)}/1.0` }, "wire"],
+      ["plain-cert", "wire", { "x-forwarded-client-cert": "By=spiffe://a;Hash=b" }, "wire"],
+      ["profile-marked", "profile:codex", identity("other@example.com"), "Profile: Codex"],
+      ["long-key-name", "long", {}, "n".repeat(120)],
       ["refused", "wrong", { ...forged, ...identity("other@example.com"), "user-agent": `${"r".repeat(300)}/1.0`, "x-client-name": "Spoof", "x-forwarded-client-cert": "Spoof", "x-llmr-client": "Spoof" }],
       ["missing", undefined, { ...forged, ...identity("other@example.com"), "x-llmr-client": "Spoof" }]
     ];
@@ -511,8 +511,8 @@ for (const layout of ["single", "compat"]) {
     const database = await usageStore.getDatabase();
     const usageRows = (kind) => database.prepare("SELECT client, forwarded_user_email, forwarded_user_id FROM usage_events WHERE model = ?").all(modelFor(kind)).map((row) => ({ ...row }));
     const expected = {
-      marked: { client: layout === "compat" ? "forwarder" : "Node.js", forwarded_user_email: "dev@example.com", forwarded_user_id: "sub-123" },
-      plain: { client: layout === "compat" ? "wire" : "Node.js", forwarded_user_email: "", forwarded_user_id: "" }
+      marked: { client: "forwarder", forwarded_user_email: "dev@example.com", forwarded_user_id: "sub-123" },
+      plain: { client: "wire", forwarded_user_email: "", forwarded_user_id: "" }
     };
     for (const [kind, row] of Object.entries(expected)) {
       await until(() => usageRows(kind).length > 0, 20000);
