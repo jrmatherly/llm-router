@@ -48,7 +48,7 @@ No task starts before the owner answers its row. A row he answers with "no" take
 | 4 | F-LABEL-1 | A request is named by its key in both layouts | yes, 2026-11-27. **Merged, PR 184, `0c9f6068`** |
 | 5, 7 | F-TEST-13, F-TEST-1 | Fix one test fault and prove route scripts run side by side | yes, 2026-11-27. **Merged, PR 182, `05ce1d74`** |
 | 8 | F-TEST-3 | Make the Windows and Intel Mac jobs required checks | open. Task 5 is merged. Windows passed on the merge commit and failed on the next commit of `main` in another test (F-TEST-34), which put the count of three at zero. Since then the Windows and Intel Mac jobs passed on six runs of `main` in a row, each on its first attempt, from `46087588250` to `46092022296` (read, 2026-11-27), so the count is met. F-TEST-34 and F-TEST-35 still have no known cause |
-| 9 | F-TEST-5 | Dependabot version updates, and close Renovate's PR 168 | open |
+| 9 | F-TEST-5 | Dependabot version updates, and close Renovate's PR 168 | Renovate, 2026-11-27, set up as in his other repositories. Built as PR 187, which adds `renovate.json` and empties `.github/dependabot.yml`. Not merged. Task 9's steps below are written for Dependabot and no longer apply |
 | 10 | F-GATEWAY-1 | Release the gateway fork as `llmr.5` | "not yet", 2026-11-27 |
 | 11 | F-RESTORE-3, F-GATEWAY-2, F-PRICE-7 | Correct three plans' text | none needed, docs only. Steps 1 and 3 done on 2026-11-27, audited on another model first. Step 2 waits on his word, since another session owns that plan |
 
