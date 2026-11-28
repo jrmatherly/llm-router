@@ -38,6 +38,24 @@ export function removeCodexProviderTable(source: string, providerId: string): st
   return joinStatements(scanTomlStatements(source).filter(({ table }) => !isProviderTableOrChild(table, removed)));
 }
 
+// Codex cannot load LLMR's [model_providers.<id>] table beside the same id defined by dotted keys or inline, or beside a root model_providers value of any id.
+export function headerlessCodexProviderTable(source: string, providerId: string): "own-id" | "root-inline" | undefined {
+  const id = tomlKey(providerId);
+  const isOwnId = (key: string, prefix: string) => key === `${prefix}${id}` || key.startsWith(`${prefix}${id}.`);
+  for (const { key, table } of scanTomlStatements(source)) {
+    if (key === undefined) {
+      continue;
+    }
+    if (table === "" && key === "model_providers") {
+      return "root-inline";
+    }
+    if ((table === "" && isOwnId(key, "model_providers.")) || (table === "model_providers" && isOwnId(key, ""))) {
+      return "own-id";
+    }
+  }
+  return undefined;
+}
+
 function providerTablePath(providerId: string): string {
   return `model_providers.${tomlKey(providerId)}`;
 }
