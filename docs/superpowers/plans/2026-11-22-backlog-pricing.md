@@ -1001,7 +1001,7 @@ An OpenAI response states the tier that served it in `service_tier` (X-8). A pri
 - Tests: a `priority` response on a fixture LiteLLM entry gives the priority price in both rows of the parity test. A `default` response gives the standard one. A tier name no catalog prices gives the standard one.
 - Commit: `feat(usage): price a request by the service tier its response reports`
 
-Not covered either way: Anthropic's fast mode (`usage.speed`) and OpenAI's newer tier names, which LiteLLM states as a multiplier or not at all.
+Not priced either way: Anthropic's fast mode (`usage.speed`) and OpenAI's newer tier names, which LiteLLM states as a multiplier or not at all. Option C under "Open with the owner" marks them as estimates.
 
 ---
 
@@ -1010,8 +1010,12 @@ Not covered either way: Anthropic's fast mode (`usage.speed`) and OpenAI's newer
 1. **Which price a priority or flex request takes when the rule's price has no service-tier figure.** Task 8 waits on this. models.dev, which prices most models first under V-21, has no service-tier price. LiteLLM has one for 468 entries (priority) and 335 (flex), per the validation pass.
    - **A. Only where the price already came from LiteLLM.** No change to the rule. Changes very few requests, and a priority request on a models.dev price stays at about half its real cost.
    - **B. For a request whose response reports `priority` or `flex`, take LiteLLM's entry for that model when it has a price for the tier, and label it `litellm`.** The figure is a listed one. The rule gains a branch that depends on the response body. `priceFor` already resolves after the response headers arrive (`pipeline.ts:279`), so the cost is reading the body's `service_tier` before resolving, which for a stream is at its end.
-   - **C. Do not price the tier. Mark such a request's cost as an estimate** (Task 5's tilde) when the response reports a tier other than `default` and the price has no figure for it. Small, honest, and no new price logic.
-   - **Recommendation: C now, B later if the owner wants the figure.** C costs a few lines on top of Task 8's settled parts and never shows a standard price as exact for a request that was not standard. B is the only option that shows the right number, and it reopens "resolved once per request".
+   - **C. Do not price the tier. Mark such a request's cost as an estimate** (Task 5's tilde) when the response reports a tier priced differently from standard and the price has no figure for it. Small, honest, and no new price logic. The tiers that mark a cost, restated on 2026-11-27 from `../research/2026-11-27-decisions-pricing-round-2.md` (F-PRICE-7):
+     - OpenAI: the top-level `service_tier` is `priority`, `fast`, `flex` or `ultrafast`. `default`, `auto`, `scale` and an absent field leave the cost as it is.
+     - Anthropic: `usage.speed` is `fast`. `usage.service_tier` marks nothing. `standard` there is an ordinary request, so "a tier other than `default`" would have marked every Anthropic request.
+     - Google: the `x-gemini-service-tier` response header is `priority` or `flex`. Whether the gateway passes that header on to LLM Router was not checked.
+     - The limit, run on gateway 1.0.22-llmr.4. A translated reply that is not streamed drops `service_tier` and `usage.speed` in every store, as it drops a provider's reported cost. A translated stream keeps them in the single layout only, and in the compatibility layout its usage row loses them. Those costs stay unmarked. A new tier name also stays unmarked until it is added to the list.
+   - **Recommendation: C now, B later if the owner wants the figure.** C costs Task 8's settled parts plus a reader for `usage.speed` and one for the `x-gemini-service-tier` header. Apart from the limit above, it never shows a standard price as exact for a request whose response reports another tier. B is the only option that shows the right number, and it reopens "resolved once per request".
 
 2. **Whether to change the gateway fork so a provider's reported cost survives protocol translation.** Task 6 waits on this. The fork's `StandardUsage` has no cost field, and nothing in the bundle reads `usage.cost` (read, 1.0.22-llmr.4). Without a fork change, Task 6 helps only a same-protocol OpenRouter request, if any, which its Step 1 wire test would show.
    - **A. Change the fork.** Add an optional `cost` (and `is_byok`) to `StandardUsage`, read them from an OpenRouter chat completion, and emit them in every formatter's `usage`. Then build Task 6 against the new pin. Needs the owner's word for the fork push and tag.
