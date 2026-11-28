@@ -222,7 +222,7 @@ test("a user price of zero is a real price of zero", async () => {
   });
 });
 
-test("a catalog entry priced 0 for input and output does not stop the rule", async () => {
+test("a catalog entry the request's own provider prices 0 for input and output stops the rule at zero", async () => {
   const modelsDev = {
     ...otherCatalogs.modelsDev,
     deepseek: { models: { "deepseek-chat": { cost: { input: 0, output: 0 } } } }
@@ -231,14 +231,14 @@ test("a catalog entry priced 0 for input and output does not stop the rule", asy
   const config = { Providers: [{ baseUrl: "https://api.deepseek.com", models: ["deepseek-chat"], name: "DeepSeek" }] };
   await withPriceCatalogs({ liteLlm, modelsDev }, () => {
     assert.deepEqual(resolveRequestPrice(config, "DeepSeek", "deepseek-chat"), priced({
-      pricing: { inputUsdPerMillionTokens: 0.8, outputUsdPerMillionTokens: 2 },
-      source: "litellm"
+      pricing: { inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 0 },
+      source: "listed-free"
     }));
     const resolved = { inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 5 };
     assert.equal(
       estimateUsageCost({ inputTokens: 10, model: "m", pricing: resolved, pricingSource: "models.dev" }),
       undefined,
-      "only a user price may come to zero"
+      "a list price that comes to zero is no cost"
     );
   });
 });
@@ -732,5 +732,68 @@ test("a base entry that lists input at 0 beside a real output stays priced with 
     const outcome = resolveRequestPrice(lab, "Lab", "lab/m");
     assert.equal(outcome.state, "priced");
     assert.deepEqual(outcome.price.pricing, { inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 5 });
+  });
+});
+
+test("a zero the request's own provider lists is a price of zero, and a zero offer leads nowhere else", async () => {
+  const openRouter = [...otherCatalogs.openRouter, { id: "lab/model:free", pricing: { completion: "0", prompt: "0" } }];
+  const modelsDev = {
+    ...haikuModelsDev,
+    "zai-coding-plan": { models: { "glm-9": { canonical_model_id: "zai/glm-9", cost: { input: 0, output: 0 } } } },
+    zai: { models: { "glm-9": { cost: { input: 1, output: 3 } } } },
+    "free-host": { models: { "claude-haiku-5-5-free": { canonical_model_id: "anthropic/claude-haiku-5-5", cost: { input: 0, output: 0 } } } }
+  };
+  const config = {
+    Providers: [
+      { baseUrl: "https://openrouter.ai/api/v1", models: ["lab/model:free"], name: "Router" },
+      { baseUrl: "https://api.z.ai/api/coding/paas/v4", models: ["glm-9"], name: "Plan" },
+      { ...customProvider, models: ["claude-haiku-5-5-free"] }
+    ]
+  };
+  const free = priced({ pricing: { inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 0 }, source: "listed-free" });
+  await withPriceCatalogs({ modelsDev, openRouter }, () => {
+    assert.deepEqual(resolveRequestPrice(config, "Router", "lab/model:free"), free);
+    assert.equal(resolveRequestPrice(config, "Plan", "glm-9").price?.source, "listed-free");
+    assert.deepEqual(resolveRequestPrice(config, "VM Custom", "claude-haiku-5-5-free"), { state: "unpriced" });
+    const usage = { inputTokens: 10, model: "m", outputTokens: 1, pricing: free.price.pricing, pricingSource: "listed-free" };
+    assert.equal(estimateUsageCost(usage)?.amountUsd, 0);
+    assert.equal(costBasisFor({ billableTokens: 11, costSource: "listed-free", costUsd: 0 }), "listed");
+  });
+});
+
+const zeroConfig = { Providers: [{ ...customProvider, models: ["x", "free-model", "y"] }] };
+
+test("the maker step does not read a zero: a maker listed at zero leaves the reseller median", async () => {
+  const modelsDev = {
+    ...otherCatalogs.modelsDev,
+    host: { models: { x: { canonical_model_id: "lab/x", cost: { input: 1, output: 2 } } } },
+    lab: { models: { x: { cost: { input: 0, output: 0 } } } }
+  };
+  await withPriceCatalogs({ modelsDev }, () => {
+    assert.deepEqual(resolveRequestPrice(zeroConfig, "VM Custom", "x"), priced({
+      pricing: { inputUsdPerMillionTokens: 1, outputUsdPerMillionTokens: 2 },
+      source: "models.dev-median"
+    }));
+  });
+});
+
+test("the LiteLLM step does not read a zero", async () => {
+  const liteLlm = { ...otherCatalogs.liteLlm, "free-model": { input_cost_per_token: 0, output_cost_per_token: 0 } };
+  await withPriceCatalogs({ liteLlm }, () => {
+    assert.deepEqual(resolveRequestPrice(zeroConfig, "VM Custom", "free-model"), { state: "unpriced" });
+  });
+});
+
+test("an offer with input 0 and a real output price still names its maker", async () => {
+  const modelsDev = {
+    ...otherCatalogs.modelsDev,
+    host: { models: { y: { canonical_model_id: "lab/y", cost: { input: 0, output: 5 } } } },
+    lab: { models: { y: { cost: { input: 1, output: 3 } } } }
+  };
+  await withPriceCatalogs({ modelsDev }, () => {
+    assert.deepEqual(resolveRequestPrice(zeroConfig, "VM Custom", "y"), priced({
+      pricing: { inputUsdPerMillionTokens: 1, outputUsdPerMillionTokens: 3 },
+      source: "models.dev"
+    }));
   });
 });

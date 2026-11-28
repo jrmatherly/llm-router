@@ -5,7 +5,7 @@ import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
 
 type ModelPricingSource = "litellm" | "models.dev" | "openrouter";
 // "models.dev-median" is an estimate from reseller offers, never a listed price.
-type CatalogPricingSource = ModelPricingSource | "models.dev-median";
+type CatalogPricingSource = ModelPricingSource | "listed-free" | "models.dev-median";
 export type UsagePricingSource = CatalogPricingSource | "custom";
 
 export type CompleteModelPricing = ProviderModelPricing & {
@@ -81,6 +81,7 @@ type BareNameOffers = {
 type PriceIndex = {
   byBareName: Map<string, BareNameOffers>;
   byKey: Map<string, CatalogEntry>;
+  zeroKeys: Set<string>;
 };
 
 type SourcePrices = {
@@ -108,6 +109,7 @@ const modelsDevPricesUrl = "https://models.dev/api.json";
 const openRouterModelsUrl = "https://openrouter.ai/api/v1/models";
 const pricingSources = new Set(Object.keys({
   custom: true,
+  "listed-free": true,
   litellm: true,
   "models.dev": true,
   "models.dev-median": true,
@@ -284,8 +286,8 @@ function estimateUsageCostFromPricing(
     cacheWrite1hTokens * cacheWrite1hUsdPerToken +
     unclassifiedCacheWriteTokens * cacheWrite5mUsdPerToken;
 
-  // Only a price the user set may come to zero. A catalog zero is a missing price.
-  if (!Number.isFinite(amountUsd) || amountUsd < 0 || (amountUsd === 0 && source !== "custom")) {
+  // Only a user's price or a zero the request's own provider lists may come to zero. Any other catalog zero is a missing price.
+  if (!Number.isFinite(amountUsd) || amountUsd < 0 || (amountUsd === 0 && source !== "custom" && source !== "listed-free")) {
     return undefined;
   }
 
@@ -338,18 +340,24 @@ function findCatalogRulePrice(
 
 function openRouterEntry(context: CatalogRuleContext): CatalogEntry | undefined {
   const isOpenRouter = context.catalogProviderIds.includes("openrouter") || context.provider.includes("openrouter");
-  return isOpenRouter ? context.catalog.get("openrouter")?.index.byKey.get(context.model) : undefined;
+  return isOpenRouter ? ownEntry(context.catalog.get("openrouter")?.index, context.model) : undefined;
 }
 
 function mappedProviderEntry(context: CatalogRuleContext): CatalogEntry | undefined {
   const modelsDev = context.catalog.get("models.dev")?.index;
   for (const id of context.catalogProviderIds) {
-    const entry = modelsDev?.byKey.get(normalizeKey(`${id}/${context.model}`));
+    const entry = ownEntry(modelsDev, normalizeKey(`${id}/${context.model}`));
     if (entry) {
       return entry;
     }
   }
   return undefined;
+}
+
+function ownEntry(index: PriceIndex | undefined, key: string): CatalogEntry | undefined {
+  return index?.byKey.get(key) ?? (index?.zeroKeys.has(key)
+    ? { model: key, pricing: { inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 0 }, source: "listed-free" }
+    : undefined);
 }
 
 function makerEntry(context: CatalogRuleContext): CatalogEntry | undefined {
@@ -465,7 +473,7 @@ async function loadPriceCatalog(previous: PriceCatalog | undefined): Promise<Pri
 }
 
 function emptyPriceIndex(): PriceIndex {
-  return { byBareName: new Map(), byKey: new Map() };
+  return { byBareName: new Map(), byKey: new Map(), zeroKeys: new Set() };
 }
 
 async function fetchLiteLlmPrices(): Promise<PriceIndex> {
@@ -539,9 +547,10 @@ async function fetchModelsDevPrices(): Promise<PriceIndex> {
       const bare = normalizeKey(lastPathSegment(modelKey));
       const offers = index.byBareName.get(bare) ?? { canonicalIds: new Set(), offerKeys: new Set() };
       offers.offerKeys.add(key);
-      if (canonicalModelId) offers.canonicalIds.add(canonicalModelId);
-      index.byBareName.set(bare, offers);
       const cost = isRecord(model.cost) ? model.cost : {};
+      // A zero offer names no maker: a free alias is not the maker's model.
+      if (canonicalModelId && !(readNumber(cost.input) === 0 && readNumber(cost.output) === 0)) offers.canonicalIds.add(canonicalModelId);
+      index.byBareName.set(bare, offers);
       const tiers = (Array.isArray(cost.tiers) ? cost.tiers : []).filter(isRecord).map((tier) => ({
         pricing: modelsDevPricing(tier),
         size: readNumber(isRecord(tier.tier) ? tier.tier.size : undefined)
@@ -590,8 +599,9 @@ async function fetchOpenRouterPrices(): Promise<PriceIndex> {
   return index;
 }
 
-// An entry needs an input and an output price. One that lists both at 0 is
-// "no price here" (free tiers, subscription plans), so the rule goes on.
+// An entry needs an input and an output price. One that lists both at 0 (free
+// tiers, subscription plans) goes to zeroKeys instead: only the request's own
+// provider reads it, and every other step goes on.
 function addCatalogEntry(
   index: PriceIndex,
   key: string,
@@ -602,11 +612,11 @@ function addCatalogEntry(
   tierCandidates: Array<{ pricing: ProviderModelPricing; size: number | undefined }> = []
 ): void {
   const pricing = definedPrices(candidate);
-  if (
-    !key ||
-    !hasCompleteProviderModelPricing(pricing) ||
-    (pricing.inputUsdPerMillionTokens === 0 && pricing.outputUsdPerMillionTokens === 0)
-  ) {
+  if (!key || !hasCompleteProviderModelPricing(pricing)) {
+    return;
+  }
+  if (pricing.inputUsdPerMillionTokens === 0 && pricing.outputUsdPerMillionTokens === 0) {
+    index.zeroKeys.add(key);
     return;
   }
   // A tier's own fields overlay the base entry's, so a tier with no cache price keeps the base one.

@@ -192,6 +192,7 @@ export function totalCostCaption(totals: Pick<UsageTotals, "estimatedCostUsd" | 
 const priceSourceLabels = new Map([
   ["custom", "Your price"],
   ["gateway_billing", "Calculated by the gateway from its billing rates"],
+  ["listed-free", "Listed at no charge"],
   ["litellm", "LiteLLM list price"],
   ["models.dev", "models.dev list price"],
   ["models.dev-median", "Median of reseller prices on models.dev"],

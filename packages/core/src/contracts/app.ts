@@ -2315,7 +2315,7 @@ export function requestLogOutcome(entry: { error?: string; ok: boolean; statusCo
 
 export type CostBasis = "listed" | "estimate" | "user" | "unknown";
 
-export const listedCostSources = ["litellm", "models.dev", "openrouter"];
+export const listedCostSources = ["listed-free", "litellm", "models.dev", "openrouter"];
 
 export function costBasisFor(row: { billableTokens: number; costSource: string; costUsd: number | undefined }): CostBasis | undefined {
   if (row.costUsd === undefined || (row.billableTokens <= 0 && row.costUsd <= 0)) {
