@@ -26,7 +26,7 @@ import {
   PluginInstallCandidate, PluginMarketplaceEntry, PluginSettingsDraft, presetCapabilitiesFromDraft,
   probeProviderCandidates, probeProviderDeepLinkPayload, profileAgentLabel, profileAgentOptions, profileDraftWithDetectedAppPath, profileEnvRowsForAgent, profileHasUsableModels, ProfileConfig, ProfileOpenSurface, ProfileRuntimeStatus, profileConfigFromDraft, providerAccountApiKeySafetyIssue,
   profileOpenCommandFallback, profileOpenSurfaces, ProviderAccountSnapshot, providerApiKeySafetyIssue, ProviderConnectivityCheckReport, ProviderDeepLinkPayload, ProviderDeepLinkRequest, providerIdentitySafetyIssue, providerProbeCandidates,
-  providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, providerSupportsDeferredToolsForSave, ProxyNetworkSnapshot, savedLoginAddressChanged, savedLoginAddressChangedMessage,
+  providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProbeAfterCheck, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, providerSupportsDeferredToolsForSave, ProxyNetworkSnapshot, savedLoginAddressChanged, savedLoginAddressChangedMessage,
   ProxyStatus, RequestLogListFilter, RequestLogPage,
   ResolvedTheme, resolvePluginInstallPlan, resolveProviderDeepLinkCatalogModels, removeLocalAgentProviderPluginsForProvider, RouterRule, routingRuleFromDraft, SettingsPageId,
   setProviderPresets, splitLines, appErrorMessage, TrayBalanceProgressConfig, TrayWidgetConfig,
@@ -1744,7 +1744,7 @@ function App() {
         return emptyReport;
       }
 
-      setProviderConnectivityProbe(report.probe);
+      setProviderConnectivityProbe(providerConnectivityProbeAfterCheck(report.probe));
 
       if (report.passed.length === 0) {
         setProviderProbeError(appErrorMessage(report.failed[0]?.message || "Request failed."));
@@ -1752,7 +1752,7 @@ function App() {
       return report;
     } catch (error) {
       if (providerConnectivityRequestId.current === requestId) {
-        setProviderConnectivityProbe(undefined);
+        setProviderConnectivityProbe(providerConnectivityProbeAfterCheck());
         setProviderProbeError(formatAppError(error));
       }
       return emptyReport;
