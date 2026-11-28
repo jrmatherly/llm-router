@@ -4,7 +4,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 
 const jobs = yaml.load(readFileSync(".github/workflows/release.yml", "utf8")).jobs;
 const script = jobs.publish.steps.at(-1).run;
