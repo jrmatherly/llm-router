@@ -591,7 +591,7 @@ function gatewayFetchPreloadScript(): string {
     "const hasTimeout = Number.isFinite(parsedTimeout) && parsedTimeout >= 0;",
     "if ((up || hasTimeout) && um) {",
     "  const { Agent, ProxyAgent, fetch: bundledFetch } = require(um);",
-    // undici 8 negotiates HTTP/2 over TLS by default; the fusion MCP servers have always reached outside hosts through the proxy over HTTP/1.1.
+    // undici 8 defaults to HTTP/2 over TLS; keep the fusion MCP servers on HTTP/1.1, direct or through the proxy.
     "  const dispatcherOptions = Object.assign({ allowH2: false }, hasTimeout ? { headersTimeout: Math.trunc(parsedTimeout), bodyTimeout: Math.trunc(parsedTimeout) } : {});",
     "  const directAgent = hasTimeout ? new Agent(dispatcherOptions) : undefined;",
     "  const proxyAgent = up ? new ProxyAgent(Object.assign({ uri: up }, dispatcherOptions)) : undefined;",
