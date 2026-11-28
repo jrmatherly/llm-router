@@ -46,9 +46,9 @@ Counted by a script over the tables below.
 | GATEWAY | 0 | 2 | 11 | 0 | 6 | 19 |
 | UI | 0 | 1 | 0 | 0 | 4 | 5 |
 | WIN | 0 | 0 | 0 | 0 | 2 | 2 |
-| TEST | 0 | 4 | 0 | 27 | 0 | 31 |
+| TEST | 0 | 4 | 0 | 28 | 0 | 32 |
 | DOCS | 0 | 1 | 0 | 0 | 2 | 3 |
-| Total | 2 | 26 | 27 | 27 | 88 | 170 |
+| Total | 2 | 26 | 27 | 28 | 88 | 171 |
 
 ## Before release
 
@@ -280,6 +280,7 @@ Question 17 of the delivery index, whether merges can go without his review line
 | F-TEST-31 | No kept test runs two processes on one home. The research ran one by editing `build/test-home.mjs`. | VM findings plan, "Not in this plan" | new | read | A supported way to share one home between two test processes. | test |
 | F-TEST-32 | The test of F-TEST-1 proves two route scripts run at the same time. It proves they land on separate workers only because a worker runs one request at a time, and no test is known to pin that rule by itself: with both places that serialize a worker removed, the test passes on one worker. | PR 182 review | old | run by the reviewer, not repeated | A test that runs two scripts on one worker and asserts they do not overlap, after checking that none exists. | test |
 | F-TEST-33 | `raw-trace-sync.test.mjs` has a retry loop near line 916 with its own 2 second deadline, which PR 182's change to `waitFor` does not reach. It was not one of the tests that timed out. | PR 182 review | old | read | Leave it unless it fails on a slow runner. | test |
+| F-TEST-34 | `Logs rows sent before the gateway stops are listed after it` (`october-issues-wire.test.mjs`) failed on Windows on a docs-only commit of `main`, `cfcd4cae`: "Timed out waiting for gateway/logs" after 12.5 seconds, 1 failure in 2,550. The same job passed on PR 182's head and on its merge commit. Cause not known. It restarts the count of green Windows runs that remediation Task 8 waits for. | `main`, run `46083424211` | unknown | run, read from the job log | Find the cause before Windows becomes a required check. | test |
 
 ## DOCS
 
