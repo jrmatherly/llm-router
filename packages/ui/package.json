@@ -16,7 +16,7 @@
     "@musistudio/lucide-morph-react": "^1.0.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.17.0",
-    "motion": "^12.40.0",
+    "motion": "^14.14.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^3.8.1",
