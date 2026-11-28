@@ -4,7 +4,11 @@
 
 > **Status, 2026-11-28: written from three prototypes, not built.** Each task was built once as a prototype on another model at `main` `8f1725f1`, in its own worktree, to a state where every suite it ran passed (its run). The lead then applied the three prototypes' source changes to one tree, regenerated the lockfiles and ran every suite: typecheck 0 errors, lint clean over 949 files, architecture 219 of 219, UI 338 of 338, Electron 46 of 46, CLI 21 of 21, core 2,544 passed with 16 skipped and none failed (the lead's run). No task is approved. Building each branch and merging each PR needs the owner's word.
 
-> **Audited by building, 2026-11-28.** An audit on another model built Tasks 1, 2 and 3 in order on one tree from this text alone, without the prototypes. Every edit applied, every red check went red, and its gate matched the counts above. It found no Blocker, 5 Corrections and 5 Gaps, all applied below. It ran 6 mutants: 4 killed and 2 survivors, each of which now has a test or an assertion here. The version assertion in Task 1 Step 1 was written after the audit. The lead ran its expression alone: it reads 4.3.2 on `main` and on the audit's built tree, where the root's own copy reads 5.5.0.
+> **Audited by building, 2026-11-28.** An audit on another model built Tasks 1, 2 and 3 in order on one tree from this text alone, without the prototypes. Every edit applied, every red check went red, and its gate matched the counts above. It found no Blocker, 5 Corrections and 5 Gaps, all applied below. It ran 6 mutants: 4 killed and 2 survivors, each of which now has a test or an assertion here. > **Reviewed for design, 2026-11-28.** A second review on another model read the plan against the code and the makers' sources and built nothing. It found one High fault, confirmed by the lead's run: after Task 2 the Docker image holds no `undici`, so a container with a proxy set cannot start its gateway. Task 2 Step 8b fixes it. Its other findings are applied too, except one the lead found wrong: it took `gateway/upstream/executor.ts` for the path to providers, and that fetch goes to the gateway child on loopback.
+
+> **HTTP/2 researched, 2026-11-28.** A research run on another model mapped which requests use which HTTP version on Node 24, Node 26, Docker and the desktop app, read the makers' issue trackers and measured HTTP/1.1 against HTTP/2 on loopback. Its result changed this plan's text and not its code: provider calls never pass through LLMR's undici, so Task 2 Step 7 guards only the fusion MCP servers behind a proxy, and Review Focus 6 is new. The note is [`../research/2026-11-28-http2-for-provider-calls.md`](../research/2026-11-28-http2-for-provider-calls.md). Written after both the audit and this review, and built by nobody: Task 2 Step 8b, the stream and abort half of Task 2 Step 8, and in Task 1 Step 1 the `builderYaml` line and the version assertion's final form.
+
+> The version assertion in Task 1 Step 1 was written after the audit. The lead ran its expression alone: it reads 4.3.2 on `main` and on the audit's built tree, where the root's own copy reads 5.5.0.
 
 **Goal:** Move `js-yaml` to 5, `undici` to 8 and React to 19, each as its own PR, with the code changes each needs and a test for what the change could break.
 
@@ -14,7 +18,7 @@
 
 **Spec:** There is no separate spec. This plan argues from:
 - Renovate's Dependency Dashboard, issue 188 of `jrmatherly/llm-router`, which lists the three updates.
-- The section "What the prototypes found" below. Its evidence is outside the repo in `private/research/2026-11-28-major-updates/`, one folder per task with `prototype.patch` and `notes.md`.
+- The section "What the prototypes found" below. Each prototype's notes are in `../research/2026-11-28-major-updates-js-yaml-5.md`, `-undici-8.md` and `-react-19.md`, and the HTTP/2 research in `../research/2026-11-28-http2-for-provider-calls.md`. The patches and scripts are outside the repo in `private/research/2026-11-28-major-updates/`.
 - The makers' guides: [undici 7 to 8](https://undici.nodejs.org/best-practices/migrating-from-v7-to-v8), [React 19 upgrade](https://react.dev/blog/2024/04/25/react-19-upgrade-guide), [js-yaml changelog](https://raw.githubusercontent.com/nodeca/js-yaml/master/CHANGELOG.md).
 
 ## Global Constraints
@@ -28,7 +32,7 @@
 - A task builds what its text says and nothing else. Anything else found goes into the PR body under "Not in this PR".
 - One commit per task, holding the change and its test.
 - Merging needs the owner's word, once per PR. Read every CI job by hand first, Windows, the Intel Mac and e2e included. Merge with `gh pr merge <n> --squash --match-head-commit <full 40-character sha>`.
-- **A builder must not open `private/research/2026-11-28-major-updates/`.** It holds a prototype of every task. A reviewer may diff a branch against it and should explain each difference.
+- **A builder must not open `private/research/2026-11-28-major-updates/`.** It holds a prototype of every task. The three prototype notes under `docs/superpowers/research/2026-11-28-major-updates-*.md` are off limits to a builder for the same reason, and the HTTP/2 note is not. A reviewer may read all of them, diff a branch against a prototype and should explain each difference.
 - Style: double quotes, semicolons, two-space indent, no comments except a non-obvious why.
 - Never `import()` or `require()` `@the-next-ai/ai-gateway`. It starts a server.
 
@@ -46,8 +50,11 @@ Each line is a run by the prototype's builder unless it says read or inferred.
 **undici 8**
 - The five failing Codex wire tests fail because of the test's own redirect, not product code. The test sets a global dispatcher from the gateway's nested undici 6. Loading undici 8 later replaces a global dispatcher that only an older undici set, and the auth hook bundle loads LLMR's undici. Taking the test's dispatcher from LLMR's undici fixes all five, and passes on undici 7 too.
 - `system-proxy-fetch.ts` hands an undici `ProxyAgent` to Node's own fetch. Node 24 bundles undici 7.30.2. An undici 8 dispatcher is rejected there with `UND_ERR_INVALID_ARG`, "invalid onRequestStart method". `Dispatcher1Wrapper` fixes it, and works on Node 26 too. Without it every proxied core request fails.
-- HTTP/2: the gateway fetch preload in `supervisor.ts` is the only path where undici 8 changes the protocol. Its `Agent` and `ProxyAgent` speak HTTP/2 to a TLS server that offers it, through a proxy tunnel too. `allowH2: false` keeps HTTP/1.1 on both, which is what `main` does on every path.
-- Loading undici 8 anywhere replaces the global dispatcher behind Node's fetch with a wrapper around an undici 8 `Agent`. It stays on HTTP/1.1. No product code calls `setGlobalDispatcher`.
+- HTTP/2: provider calls, streamed or not, do not pass through LLMR's undici. The gateway package sends them with its own nested undici 6.29.1, and they stay on HTTP/1.1 on Node 24 and Node 26 whatever this task does (the HTTP/2 research run). The core's own request pipeline fetches the gateway child on loopback (`pipeline.ts:1291`), which no proxy touches. The fetch preload in `supervisor.ts` runs only in the fusion MCP servers (`mcp/fusion-config.ts:142`), and only when an upstream proxy is set (`config-compiler.ts:88`). There, undici 8's `Agent` and `ProxyAgent` speak HTTP/2 to a TLS server that offers it, through a tunnel too, and `allowH2: false` keeps HTTP/1.1. Its `LLMR_UPSTREAM_TIMEOUT_MS` branch is set by nothing outside its unit test.
+- Loading undici 8 before anything sets `Symbol.for('undici.globalDispatcher.2')` sets both global dispatcher symbols: the v2 one to an undici 8 `Agent` with HTTP/2 allowed, and the v1 one to a `Dispatcher1Wrapper` that forces HTTP/1.1. LLMR's bundles load undici at startup, so that happens. Node 24 and Electron 45 read v1, so their fetch stays on HTTP/1.1, with defaults that match undici 7's. Node 26 reads v2, so on Node 26 every `fetchWithSystemProxy` call with no proxy moves from HTTP/1.1 to HTTP/2 with this task (the HTTP/2 research run). On `main` it is HTTP/1.1 there only because undici 7 also seeds v2 with its own `Agent`. Node's own fetch, once it has run, and `NODE_USE_ENV_PROXY` both set the symbols first, and undici 8 then keeps Node's dispatcher. No product code calls `setGlobalDispatcher`.
+- `fetchWithSystemProxy` carries LLMR's own outside requests: token refresh for Codex, Grok and Kimi, the pricing catalog, provider probes, the marketplace, icons and media downloads. It uses a proxy when one is set in the app, in the operating system or in `HTTPS_PROXY`. Without the wrapper each of those fails behind a proxy.
+- After the bump npm nests undici 8 under `packages/core/node_modules` and marks the root copy as a development dependency. The Docker image installs with `--omit=dev` and copies only `/app/node_modules` (`Dockerfile:26` and `:61`), so it then holds no `undici` (the lead's run of that install, on both lockfiles). The core server and CLI builds do not bundle `undici-proxy-agent.js` as the Electron build does, so `resolveUndiciProxyAgentModule` throws when a proxy is set.
+- Electron 45.3.3 and 45.4.1 bundle Node 24.22.3 (`DEPS` at each tag), whose fetch is undici 7. So the wrapper is needed in the desktop app too, and undici 8's floor of Node 22.19 holds there.
 - Through a proxy, undici 8 sends a plain `http://` target in absolute form where undici 7 used `CONNECT`. An `https://` target still tunnels.
 - With a hostname target, undici 8 names the hostname in `net.connect` and resolves it to the proxy. The test network guard reads the name and refuses it. A test of this path uses an IP address.
 
@@ -64,18 +71,22 @@ Each line is a run by the prototype's builder unless it says read or inferred.
 What no test here exercises, most likely to bite first. Each names its check.
 
 1. **React 19 in a real window.** No renderer has mounted on React 19 outside the docs demos. Exit and layout animations (`AnimatePresence`, `LayoutGroup`) and the portals in `components/ui/popover.tsx` and `tooltip.tsx` inside dialogs are unseen. Check: the e2e job on the PR must pass, and the owner opens the app from the PR's build and clicks through a dialog, a popover, a tooltip and the Dashboard before saying merge.
-2. **A real upstream proxy.** Task 2's test uses a loopback proxy and a plain `http://` target. An `https://` provider through a real proxy, with authentication, is not run. Check: Task 2 Step 8.
-3. **Defaults of the global dispatcher.** After Task 2, Node's fetch in every LLMR process runs through an undici 8 `Agent` once undici loads. Its timeouts and connection limits were not compared with undici 7's. Check: Task 2 Step 7 records them in the PR body.
-4. **The docs demos after a deploy.** A green docs build does not show hydration. Check: Task 3 Step 7, in a browser.
-5. **Update file fields outside the fixtures.** `releaseNotes`, `minimumSystemVersion` and `stagingPercentage` are not in Task 1's round trip. The merge script copies what `electron-builder` wrote, and today's release writes none of the three (read in `build/merge-macos-update-metadata.mjs`). Check: a reviewer confirms that against the last release's `latest-mac.yml`.
+2. **A real upstream proxy, and a stream through it.** With a proxy set, LLMR's own outside requests go through the wrapped `ProxyAgent`: token refresh, pricing, probes, the marketplace and media downloads. Provider model calls do not. Task 2's test sends one small `http://` GET through a loopback proxy. A real proxy with authentication is not run. Check: Task 2 Step 8, which also streams and aborts.
+3. **The docs demos after a deploy.** A green docs build does not show hydration. Check: Task 3 Step 7, in a browser.
+4. **Update file fields outside the fixtures.** `releaseNotes`, `minimumSystemVersion` and `stagingPercentage` are not in Task 1's round trip. The merge script copies what `electron-builder` wrote, and today's release writes none of the three (read in `build/merge-macos-update-metadata.mjs`). Check: a reviewer confirms that against the last release's `latest-mac.yml`, from `gh release download v9.1.0 --pattern latest-mac.yml`.
+5. **A container behind a proxy.** CI's Docker smoke test sets no proxy, so it cannot show that the gateway starts with one. Check: Task 2 Step 8b's assertion in the smoke test, and one `docker run` with `HTTPS_PROXY` set before the merge.
+
+6. **Node 26 and HTTP/2 on LLMR's own requests.** After Task 2, on Node 26, token refresh, the pricing catalog, provider probes, marketplace and icon fetches and media downloads negotiate HTTP/2 with every host that offers it. Provider model calls do not change, and the desktop app is on Node 24 until an Electron that bundles Node 26. CI runs Node 24, so no job sees this. Check: Task 2's PR body says so, and the owner decides whether to accept it or pin it with `setGlobalDispatcher(new Agent({ allowH2: false }))` in a follow-up.
 
 ## Order
 
 1. Task 1, js-yaml. Smallest, and no runtime code changes.
-2. Task 2, undici. Rebase on Task 1 if it merged, then `npm install`.
-3. Task 3, React. Rebase on what merged, then `npm install` in the root.
+2. Task 2, undici. Rebase on Task 1 if it merged.
+3. Task 3, React. Rebase on what merged.
 
-Renovate has these three queued in issue 188. If it opens its own PR for one before the task's branch does, close Renovate's PR with a line pointing at this plan.
+On a rebase, take `main`'s lockfile with `git checkout origin/main -- package-lock.json`, run `npm install --ignore-scripts`, then repeat the task's `npm ls` expectation and the gate. The root `package.json` hunks of Tasks 1 and 3 do not overlap.
+
+Renovate has these three queued in issue 188. If it opens its own PR for one before the task's branch does, close Renovate's PR with a line pointing at this plan. Renovate then ignores that major.
 
 ---
 
@@ -103,7 +114,8 @@ test("the js-yaml that electron-updater ships reads the merged file with every v
   // Apps already in the field parse latest-mac.yml with this copy, which can be an older major than the one that writes it.
   const fromUpdater = createRequire(path.resolve("node_modules/electron-updater/package.json"));
   const updaterYaml = fromUpdater("js-yaml");
-  assert.match(fromUpdater("js-yaml/package.json").version, /^4\./, "electron-updater must keep its own js-yaml 4, or this test reads the file with the version that wrote it");
+  const declared = fromUpdater("./package.json").dependencies["js-yaml"].match(/\d+/)[0];
+  assert.equal(fromUpdater("js-yaml/package.json").version.split(".")[0], declared, "electron-updater must get the js-yaml major it declares, or an override is back");
   const tricky = ["=leading+equals==", "1e5", "2026-11-16", "0x1F", "1_000", "012", "true", "null", "~", "on"];
   const zip = file("Apple-Silicon-arm64.zip", tricky[0]);
   const dmgs = tricky.slice(1).map((sha512, index) => file(`odd-${index}.dmg`, sha512));
@@ -114,7 +126,9 @@ test("the js-yaml that electron-updater ships reads the merged file with every v
 });
 ```
 
-  `file`, `metadata` and `x64Zip` are the file's own helpers. The tests are bundled to CommonJS, so `import.meta.url` is empty there. Keep the `path.resolve` from the working directory. The version assertion is there because the test otherwise passes with the override kept, reading with js-yaml 5 what js-yaml 5 wrote (the audit's mutant).
+  `file`, `metadata` and `x64Zip` are the file's own helpers. The tests are bundled to CommonJS, so `import.meta.url` is empty there. Keep the `path.resolve` from the working directory. The version assertion is there because the test otherwise passes with the override kept, reading with js-yaml 5 what js-yaml 5 wrote (the audit's mutant). It compares with the major `electron-updater` declares, so it does not misfire the day `electron-updater` itself moves to js-yaml 5.
+
+  Also write each input the way `electron-builder` does, so the test covers js-yaml 4 writing and js-yaml 5 reading, which is what the release runs. At module level add `const builderYaml = createRequire(path.resolve("node_modules/builder-util/package.json"))("js-yaml");`, and in `run` write each input with `builderYaml.dump(input, { lineWidth: 8000, noRefs: true })` in place of the repo's `yaml.dump`.
 
 - [ ] **Step 2: Run it on js-yaml 4.** `node build/test.mjs architecture && node --test .test-dist/architecture/test/merge-macos-update-metadata.test.js`. Expected: PASS, 7 tests. It is a guard, so it passes before the bump: on `main` the override gives `electron-updater` the root's 4.3.2. Step 6 shows it can fail.
 
@@ -128,7 +142,7 @@ test("the js-yaml that electron-updater ships reads the merged file with every v
 
 - [ ] **Step 7: Check the audit and the install.** `npm audit --json | jq .metadata.vulnerabilities` must read moderate 6, total 6, as on `main`. `rm -rf node_modules && npm ci` must exit 0.
 
-- [ ] **Step 8: Run the gate, then commit.** Subject: `chore(deps): move js-yaml to 5 and stop forcing it onto the packaging tools`. The PR body states that the shipped app keeps js-yaml 4.3.2 inside `electron-updater`, that `pm2` is declared in `packages/core/package.json` and imported nowhere under `packages/*/src` or `build`, and Review Focus 5.
+- [ ] **Step 8: Run the gate, then commit.** Subject: `chore(deps): move js-yaml to 5 and stop forcing it onto the packaging tools`. The PR body states that the shipped app keeps js-yaml 4.3.2 inside `electron-updater`, that `pm2`, the Docker image's process manager (`docker/entrypoint.sh:227`), keeps its own js-yaml 4.3.2 and reads a `.cjs` config, so no js-yaml path runs there, and Review Focus 4.
 
 ---
 
@@ -144,6 +158,9 @@ Branch `chore/undici-8`.
 - Modify: `packages/core/src/gateway/core-runtime/supervisor.ts`, in `gatewayFetchPreloadScript` near lines 594 to 603
 - Modify: `packages/core/test/integration/gateway/october-issues-wire.test.mjs`, in `codexWireFixture` near line 730
 - Modify: `packages/core/test/unit/gateway/gateway-fetch-preload.test.mjs`, after lines 38 and 60, and one new test
+- Modify: `build/esbuild.config.mjs`, in `createCliBuildOptions` and `createCoreServerBuildOptions`
+- Modify: `tests/architecture/package-boundaries.test.mjs`, in `npm and Docker builds carry the plugin-capable gateway runtime`
+- Modify: `tests/system/docker-smoke.mjs`
 
 - [ ] **Step 1: Write the proxy test** as `packages/core/test/integration/proxy/system-proxy-fetch.test.mjs`:
 
@@ -199,11 +216,11 @@ test("a request to an outside host goes through the configured upstream proxy", 
 
 - [ ] **Step 4: Run the two red checks.** The proxy test now fails with `UND_ERR_INVALID_ARG`, "invalid onRequestStart method". `node --test .test-dist/core/test/integration/gateway/october-issues-wire.test.js` after a rebuild, with `LLMR_TEST_GATEWAY_ENTRY` set as the gate gives it, fails in five tests whose names begin "Codex requests", "three concurrent Codex requests", "an upstream 401 on a Codex request" and "#1941".
 
-- [ ] **Step 5: Wrap the proxy dispatcher.** In `packages/core/src/proxy/system-proxy-fetch.ts`, import `Dispatcher1Wrapper` from `undici` beside `ProxyAgent`, and in `proxyDispatcher` build `new Dispatcher1Wrapper(new ProxyAgent(proxyUrl))`. One `//` comment line above it. It says that Node's built-in fetch speaks the undici 7 handler API, which an undici 8 dispatcher rejects without the wrapper. The function's return type stays `Dispatcher`. Run the proxy test. Expected: PASS.
+- [ ] **Step 5: Wrap the proxy dispatcher.** In `packages/core/src/proxy/system-proxy-fetch.ts`, import `Dispatcher1Wrapper` from `undici` beside `ProxyAgent`, and in `proxyDispatcher` build `new Dispatcher1Wrapper(new ProxyAgent(proxyUrl))`. One `//` comment line above it. It says that Node 24's built-in fetch (bundled undici 7) calls the v1 handler API, which an undici 8 dispatcher rejects unless wrapped, and that on a Node whose fetch is undici 8 the wrapper passes handlers through. The function's return type stays `Dispatcher`. Run the proxy test. Expected: PASS.
 
 - [ ] **Step 6: Fix the wire test's redirect.** In `codexWireFixture`, the preload text takes `Agent` and `setGlobalDispatcher` from `createRequire(process.env.LLMR_TEST_GATEWAY_ENTRY)("undici")`. Change the `createRequire` argument to `${JSON.stringify(path.join(process.cwd(), "packages", "core", "package.json"))}`, so the dispatcher comes from LLMR's undici. One `//` comment line in the test source, directly above `writeFileSync(preload, …)`, saying that loading undici 8 later, which the auth hook does, replaces a global dispatcher that only an older undici set. Run the file. Expected: 24 pass.
 
-- [ ] **Step 7: Keep HTTP/1.1 in the gateway preload.** First add to `packages/core/test/unit/gateway/gateway-fetch-preload.test.mjs`, after the two `bodyTimeout` assertions at lines 38 and 60, the first after `harness.agentOptions[0].bodyTimeout` and the second after `harness.proxyAgentOptions[0].bodyTimeout`, and then the new test:
+- [ ] **Step 7: Keep HTTP/1.1 in the fetch preload of the fusion MCP servers.** First add to `packages/core/test/unit/gateway/gateway-fetch-preload.test.mjs`, after the two `bodyTimeout` assertions at lines 38 and 60, the first after `harness.agentOptions[0].bodyTimeout` and the second after `harness.proxyAgentOptions[0].bodyTimeout`, and then the new test:
 
 ```js
   assert.equal(harness.agentOptions[0].allowH2, false);
@@ -231,18 +248,20 @@ test("gateway fetch preload keeps a proxy without a timeout on HTTP/1.1", () => 
     "  const dispatcherOptions = Object.assign({ allowH2: false }, hasTimeout ? { headersTimeout: Math.trunc(parsedTimeout), bodyTimeout: Math.trunc(parsedTimeout) } : {});",
 ```
 
-  and use `dispatcherOptions` where the `Agent` and the `ProxyAgent` took `timeoutOptions`. One `//` comment line in the TypeScript array, not inside a string, directly above the `dispatcherOptions` string. It says that undici 8 negotiates HTTP/2 over TLS by default, and upstreams have always been reached over HTTP/1.1. In the comment block below, the sentence about majors now reads "Node 24 ships undici 7 while LLMR bundles undici 8", and its quoted error is "invalid onRequestStart method". Run the file. Expected: PASS. In the PR body, record the default `headersTimeout`, `bodyTimeout`, `connections` and `keepAliveTimeout` of an undici 7.30 and an undici 8 `Agent`, read from each version's `lib/dispatcher/client.js` (the timeouts) and `lib/dispatcher/pool.js` (`connections`), for Review Focus 3. The audit read them as equal in 7.30.1 and 8.13.1: 300 seconds, 300 seconds, no connection limit and 4 seconds.
+  and use `dispatcherOptions` where the `Agent` and the `ProxyAgent` took `timeoutOptions`. One `//` comment line in the TypeScript array, not inside a string, directly above the `dispatcherOptions` string. It says that undici 8 negotiates HTTP/2 over TLS by default, and the fusion MCP servers have always reached outside hosts through the proxy over HTTP/1.1. In the comment block below, the sentence about majors now reads "Node 24 ships undici 7 while LLMR bundles undici 8", and its quoted error is "invalid onRequestStart method". Run the file. Expected: PASS. For the PR body: Node's fetch now runs on an undici 8 `Agent` through `Dispatcher1Wrapper`, its defaults match Node 24's bundled undici 7 (300 seconds for headers and body, 4 seconds keep-alive, 10 seconds to connect, no connection cap, read by the audit and the design review), and the wrapper forces HTTP/1.1.
 
-- [ ] **Step 8: Run one `https://` request through a proxy tunnel, outside the suite.** No built `system-proxy-fetch` exists without `build:assets`, so bundle a probe. In the session's scratch directory, not in the repo, write `probe.mjs`: a loopback `https` server with a self-signed certificate whose subject alternative name is `IP:192.0.2.1`, a loopback `CONNECT` proxy that tunnels every target to that server, the proxy saved as the custom upstream the way Step 1's test does, and one `fetchWithSystemProxy("https://192.0.2.1/v1/models")`. Wrap its body in `async function main()`. The target must not be loopback, since loopback targets bypass the proxy. From the repo root:
+- [ ] **Step 8: Run one `https://` request through a proxy tunnel, outside the suite.** No built `system-proxy-fetch` exists without `build:assets`, so bundle a probe. In the session's scratch directory, not in the repo, write `probe.mjs`: a loopback `https` server with a self-signed certificate whose subject alternative name is `IP:192.0.2.1`, a loopback `CONNECT` proxy that tunnels every target to that server, the proxy saved as the custom upstream the way Step 1's test does, and one `fetchWithSystemProxy("https://192.0.2.1/v1/models")`. The server also answers `/v1/stream` with five server-sent chunks 100 ms apart. The probe reads two of them through `Readable.fromWeb(response.body)`, the way `gateway/request/pipeline.ts` reads a stream, then aborts its `AbortController`. Wrap its body in `async function main()`. The target must not be loopback, since loopback targets bypass the proxy. From the repo root:
 
 ```sh
 npx esbuild <scratch>/probe.mjs --bundle --platform=node --format=cjs --target=node24 --tsconfig=tsconfig.json --external:better-sqlite3 --external:electron --loader:.runtime.cjs=text --outfile=<scratch>/probe.bundle.cjs
 env -i PATH=/usr/bin:/bin NODE_PATH="$PWD/node_modules" HOME=<tmp> USERPROFILE=<tmp> LLMR_INTERNAL_HOME_DIR=<tmp> LLMR_INTERNAL_APP_DATA_DIR=<tmp>/app-data LLMR_INTERNAL_USER_DATA_DIR=<tmp>/user-data LLMR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR=<tmp>/ccms NODE_EXTRA_CA_CERTS=<cert> "$(node -p process.execPath)" <scratch>/probe.bundle.cjs
 ```
 
-  `<tmp>` is a fresh `mktemp -d`. The absolute node path is needed because a version manager's shim fails under `env -i`. Expected: status 200, the proxy logged one `CONNECT 192.0.2.1:443`, the server saw HTTP/1.1, and the config landed under `<tmp>/.llm-router` (the audit's run, also against a server that offers HTTP/2). Paste the script and its output into the PR body.
+  `<tmp>` is a fresh `mktemp -d`. The absolute node path is needed because a version manager's shim fails under `env -i`. Expected: status 200, the proxy logged one `CONNECT 192.0.2.1:443`, the server saw HTTP/1.1, and the config landed under `<tmp>/.llm-router` (the audit's run, also against a server that offers HTTP/2). For the stream, the read rejects with `AbortError` and the server sees the tunnel's socket close within one second. That half was added by the design review and has not been run. If it does not hold, stop and report, since proxied media downloads stream through this dispatcher. Paste the script and its output into the PR body.
 
-- [ ] **Step 9: Run the gate, then commit.** Core is expected at two tests above `main`'s count, with 16 skipped and no refused connection. Subject: `chore(deps): move undici to 8, wrap the proxy dispatcher for Node's fetch and keep upstream calls on HTTP/1.1`. The PR body states Review Focus 2 and 3, that a plain `http://` target through a proxy is now sent in absolute form and not through `CONNECT`, and that the e2e job is the only check that undici 8 loads in the Electron main process.
+- [ ] **Step 8b: Bundle the proxy module into the CLI and core server builds.** First, in `tests/architecture/package-boundaries.test.mjs`, in the test `npm and Docker builds carry the plugin-capable gateway runtime`, add two `assert.match` lines like the two at lines 81 and 82 with `electronUndiciProxyAgentInput` in place of `gatewayRuntimeInput`. Run `npm run test:architecture`. Expected: that test fails, twice. Then in `build/esbuild.config.mjs` add `electronUndiciProxyAgentInput` to the `entryPoints` of `createCliBuildOptions` and of `createCoreServerBuildOptions`, after `upstreamHeaderSanitizerInput`, as `createMainBuildOptions` has it at line 296. `resolveBundledUndiciProxyAgentModule` then finds `undici-proxy-agent.js` beside the bundle, and no build depends on where npm puts undici. Run `npm run test:architecture`. Expected: 219 pass, or 220 after Task 1. Last, in `tests/system/docker-smoke.mjs`, after the container is healthy, add `dockerExec(containerId, ["sh", "-c", "find /app/packages/core/dist -name undici-proxy-agent.js | grep ."]);`, which throws when the file is missing. CI's Docker smoke job runs it. If Docker is on the machine, also run `npm run test:system` once, and one `docker run` of the built image with `-e HTTPS_PROXY=http://127.0.0.1:9` whose log must not hold "Unable to resolve undici ProxyAgent module". If Docker is not there, say so in the PR body. This step was written by the design review and built by nobody.
+
+- [ ] **Step 9: Run the gate, then commit.** Core is expected at two tests above `main`'s count, which is 2,545 passed if `main` still stands at 2,543, with 16 skipped and no refused connection. Subject: `chore(deps): move undici to 8, wrap the proxy dispatcher for Node's fetch and keep the fusion tool servers on HTTP/1.1`. The PR body states Review Focus 2, 5 and 6, that a plain `http://` target through a proxy is now sent in absolute form and not through `CONNECT`, that the e2e job is the only check that undici 8 loads in the Electron main process, the Docker case of Step 8b, and that `agents/cdp-client.ts` uses undici 8's `WebSocket`, which no test covers and the prototype connected to a loopback server once. Under "Not in this PR" it also states that the gateway's provider calls use the gateway's own undici 6 and stay on HTTP/1.1, so a later gateway release that moves to undici 8 or to Node's fetch turns them to HTTP/2 unless it sets `allowH2: false`, and that `LLMR_UPSTREAM_TIMEOUT_MS` is read by the preload and set by nothing outside its unit test.
 
 ---
 
@@ -268,13 +287,13 @@ Branch `chore/react-19`.
 
 - [ ] **Step 4: Import the `JSX` namespace.** Add `import type { JSX } from "react";` as the first line of `packages/ui/src/pages/home/components/update.tsx`, the form `shared/motion.tsx:1` uses. Run `npm run typecheck`. Expected: exit 0.
 
-- [ ] **Step 5: Accept the attribute's new casing.** In `packages/ui/test/component/components.test.tsx:180`, `/readonly=""/` becomes `/readonly=""/i`. React 19's server renderer writes a boolean attribute's name as the prop is written. Run `npm run test:ui`. Expected: 338 pass.
+- [ ] **Step 5: Accept the attribute's new casing.** In `packages/ui/test/component/components.test.tsx:180`, `/readonly=""/` becomes `/readonly=""/i`. React 19's server renderer writes `readOnly` as `readOnly`, and HTML reads attribute names without regard to case. Run `npm run test:ui`. Expected: 338 pass.
 
 - [ ] **Step 6: Build the docs.** `npm run build` in `docs`. Expected: exit 0 and 71 pages. Then `grep -rlE "18\.3\.1" docs/dist/_astro/*.js` must print nothing, and `grep -rhoE "19\.[0-9]+\.[0-9]+" docs/dist/_astro/*.js | sort -u` must show `19.3.1` or the installed 19.x. A looser pattern also finds `18.7.3`, which is SVG path data.
 
 - [ ] **Step 7: Prove the demos hydrate, in a browser.** In `docs`, run `npx astro preview --port 4331 --host 127.0.0.1`. It detaches by itself. Open each of `http://127.0.0.1:4331/llm-router/guides/logs-app/`, `agent-profile-app/`, `observability-app/` and `provider-app/` and wait for load. For each, `document.querySelectorAll("astro-island[ssr]").length` must be 0, which is the sign that the island hydrated, since the server's HTML already holds the buttons. The `astro-island button` count read at load must be 14, 6, 5 and 16. The count on `agent-profile-app` grows once its tutorial plays. The console must show no React error. Click Details on `observability-app` and Add provider on `provider-app`, and each must open a `[role=dialog]`. Stop the preview with `npx astro preview stop` and close every page. Put the table in the PR body.
 
-- [ ] **Step 8: Run the gate, then commit.** Subject: `chore(deps): move React to 19 across the workspace and the docs site`. The PR body states Review Focus 1 and 4, and that no renderer has mounted on React 19 in a real window before the e2e job.
+- [ ] **Step 8: Run the gate, then commit.** Subject: `chore(deps): move React to 19 across the workspace and the docs site`. The PR body states Review Focus 1 and 3, and that no renderer has mounted on React 19 in a real window before the e2e job.
 
 - [ ] **Step 9: GATE. The owner's look.** After the e2e job passes, the owner opens the app from the PR's build and checks a dialog, a popover, a tooltip and the Dashboard's animations. Nothing merges before that.
 
@@ -282,9 +301,10 @@ Branch `chore/react-19`.
 
 ## Not in this plan
 
+- **HTTP/2 to providers.** It would take a change in the gateway fork, not here. The research recommends staying on HTTP/1.1 for now: on HTTP/2 one connection reset or one error-coded GOAWAY ends every live stream to that provider (its loopback run), two open undici faults leave dead sessions behind, and the gain it measured is about 50 ms to first byte on warm bursts at a 40 ms round trip. Revisit when those faults are fixed and a real-network run shows a gain a user would notice.
 - **TypeScript 7.** The main config passes on 7.0.2. `tsconfig.codex-runtime.json` gives 7 errors in `packages/core/src/agents/codex/cli-middleware-runtime-source.runtime.cjs`, 6 TS2554 and 1 TS2810 (the lead's run). That file is edited only on purpose, and no prototype exists. It needs its own task.
-- **Holding these three in Renovate** until their PRs merge. It is the owner's choice. Without a hold Renovate opens its own PR for each on Monday, and two of the three fail CI as they stand.
-- **`pm2`.** It is declared in `packages/core/package.json` and nothing under `packages/*/src` or `build` imports it (read by the js-yaml prototype's builder). Whether to remove it is a separate question.
+- **Holding these in Renovate** until their PRs merge. It is the owner's choice. Without a hold Renovate opens a PR for each on Monday 2026-11-30, along with TypeScript 7. All four fail CI as they stand: js-yaml at the default import, undici in five wire tests, React and TypeScript 7 in typecheck.
+- **`pm2`.** It is declared in `packages/core/package.json` and run by `docker/entrypoint.sh:227`. No source imports it. Nothing to do here.
 - **The test network guard's false refusal** of a hostname target that resolves to loopback through a proxy. Task 2's test avoids it with an IP address.
 - **`lucide-astro`** in `docs` is deprecated for `@lucide/astro`.
 
@@ -293,4 +313,4 @@ Branch `chore/react-19`.
 - **Coverage.** Each of the three updates has one task. Every source edit a prototype made is a step. The four findings with no task are under "Not in this plan".
 - **What rests on a run.** Every expected count and error in the steps was seen by a prototype's builder, and the final counts by the lead on the three combined. The audit then ran every step. Written after it: the version assertion of Task 1 Step 1, whose expression the lead ran alone and not inside the test, and the two `grep` commands of Task 3 Step 6 in that exact form, run by nobody.
 - **Line numbers** are from `main` at `8f1725f1`. A builder finds each site by the text beside it.
-- **Not checked.** Any of the three in the packaged app or a real window. undici 8 against a real proxy or a real provider. The docs site after a deploy. Electron 45's bundled Node version against undici 8's floor of 22.19.
+- **Not checked.** Any of the three in the packaged app or a real window. undici 8 against a real proxy or a real provider. The docs site after a deploy. The Docker image built after Task 2, with or without a proxy. A stream and an abort through the wrapped proxy dispatcher.
