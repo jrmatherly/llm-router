@@ -1837,10 +1837,10 @@ function ProviderConnectionStatusPanel({
     ? "Checking connection"
     : notProbed
       ? "Not checked"
-      : localAgentImport
-        ? "Available after saving"
-        : connectionVerified
-          ? "Connection verified"
+      : connectionVerified
+        ? "Connection verified"
+        : localAgentImport
+          ? connectivityProbe ? "Last check failed" : "Not checked"
           : hasConnectivityCheckInputs
             ? "Not verified yet"
             : "Waiting for required fields";
@@ -1848,10 +1848,12 @@ function ProviderConnectionStatusPanel({
     ? "LLMR is sending a limited real model request."
     : notProbed
       ? "This provider forwards the login Claude Code sends and has none of its own to test with."
-      : localAgentImport
-        ? "The imported local agent login is connected when this provider is saved."
-        : connectionVerified
-          ? "A real model request succeeded with the selected provider settings."
+      : connectionVerified
+        ? "A real model request succeeded with the selected provider settings."
+        : localAgentImport
+          ? connectivityProbe
+            ? "The last real model request through this local login failed. Check Connection tries again."
+            : "LLMR has not sent a request through this local login yet. Check Connection sends one."
           : hasConnectivityCheckInputs
             ? "Optional. Check Connection sends a real model request and may consume provider credits."
             : "API endpoint, API key, and at least one model are required before verification.";
@@ -1862,7 +1864,7 @@ function ProviderConnectionStatusPanel({
         <ProviderConnectionStatusRow
           description={protocolDescription}
           loading={probeLoading}
-          state={!notProbed && (protocolDetected || localAgentImport) ? "success" : "pending"}
+          state={!notProbed && (protocolDetected || connectionVerified) ? "success" : "pending"}
           title={protocolTitle}
         />
         <ProviderConnectionStatusRow
@@ -1882,7 +1884,7 @@ function ProviderConnectionStatusPanel({
           ) : null}
           description={requestDescription}
           loading={connectivityLoading}
-          state={notProbed ? "pending" : connectionVerified || localAgentImport ? "success" : hasConnectivityCheckInputs ? "warning" : "pending"}
+          state={notProbed ? "pending" : connectionVerified ? "success" : (localAgentImport ? connectivityProbe : hasConnectivityCheckInputs) ? "warning" : "pending"}
           title={requestTitle}
         />
       </div>
@@ -2113,7 +2115,7 @@ export function AddProviderForm({
       : draft.apiKey.trim()
   );
   const modelsReady = configuredModels.length > 0;
-  const connectionVerified = (localAgentImport && !claudeLoginProvider) || providerProbeHasSupportedProtocol(connectivityProbe);
+  const connectionVerified = providerProbeHasSupportedProtocol(connectivityProbe);
   const showStep = (step: ProviderSetupStepId) => !activeStep || activeStep === step;
 
   function updateConfiguredModels(models: string[]) {
@@ -3641,7 +3643,6 @@ export function AddProviderDialog({
   const wizardMode = mode === "add";
   const selectedPreset = findProviderPreset(draft.presetId);
   const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft, providerPlugins, existingProvider);
-  const claudeLoginProvider = isClaudeLoginProviderDraft(draft, providerPlugins, existingProvider);
   const setupStepIds = providerSetupStepsForDraft(draft, providerPlugins, existingProvider);
   const providerIdentityReady = Boolean(importProvider) || Boolean(selectedPreset || draft.baseUrl.trim());
   const credentialPoolReady = providerDraftHasReadyCredentialPool(draft);
@@ -3746,7 +3747,7 @@ export function AddProviderDialog({
               providerReady={providerIdentityReady}
               stepIds={setupStepIds}
               variant="divider"
-              verified={(localAgentImport && !claudeLoginProvider) || providerProbeHasSupportedProtocol(connectivityProbe)}
+              verified={providerProbeHasSupportedProtocol(connectivityProbe)}
             />
           ) : null}
 
