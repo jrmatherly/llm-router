@@ -39,6 +39,12 @@
       "automerge": false
     },
     {
+      "description": "A major waits on the dashboard, issue 188, until its box is ticked. Most need code, and a plan under docs/superpowers/plans builds them.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
       "description": "The docs site has its own lockfile and its own workflow",
       "matchManagers": ["npm"],
       "matchFileNames": ["docs/**"],
