@@ -8149,7 +8149,7 @@ test("a reserved Codex provider id is refused after it is sanitized", { skip: !p
 test("a Codex apply is refused when the user's config defines a provider LLMR cannot write beside", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const B = 'base_url = "http://127.0.0.1:9/v1"';
   const ownId = /defines the provider "llm-router" without its own \[model_providers\.llm-router\] header/;
-  const rootInline = /defines model_providers on one line/;
+  const rootInline = /assigns model_providers as one value at the top of the file/;
   const forms = {
     dottedRoot: [`model_providers.llm-router.name = "Mine"\nmodel_providers.llm-router.${B}\n`, ownId],
     dottedUnderSuper: [`[model_providers]\nllm-router.name = "Mine"\nllm-router.${B}\n`, ownId],
@@ -8190,6 +8190,16 @@ test("a provider id that only starts with the profile's id is not refused", { sk
     const codex = (await applyProfileConfig(config)).clients.find((client) => client.client === "codex");
     assert.equal(codex?.ok, true, codex?.message);
   }, plantCodexOriginal(original), { applied: false });
+});
+
+test("a Codex apply is refused over a headerless provider whose id needs quotes", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = `model_providers."my.router".name = "Mine"\nmodel_providers."my.router".base_url = "http://127.0.0.1:9/v1"\n`;
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, config }) => {
+    const codex = (await applyProfileConfig(config)).clients.find((client) => client.client === "codex");
+    assert.equal(codex?.ok, false);
+    assert.match(codex.message, /without its own \[model_providers\."my\.router"\] header/);
+    assert.equal(readFileSync(codexConfigFile, "utf8"), original);
+  }, plantCodexOriginal(original), { applied: false, configure: withCodexProviderId("my.router") });
 });
 
 test("a config 9.1.0 already doubled is refused on the next apply, and the switch-off removes LLMR's table", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
