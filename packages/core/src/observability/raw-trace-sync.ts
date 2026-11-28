@@ -21,7 +21,7 @@ import { rawTraceMaxPartBytes, resolveRawTraceBodyLimit } from "@llmr/core/obser
 import { maxRequestLogModelLength } from "@llmr/core/observability/request-log-model";
 import { redactSensitiveUrlQuery } from "@llmr/core/observability/sensitive-headers";
 import { isRecord, numberValue, stringValue } from "@llmr/core/gateway/internal/value";
-import { formatError, forwardedIdentity, type GatewayClientCaller, inferGatewayClient, isTrustedForwarderKey, parseJsonObject, readHeader, readRequestBody, sendJson, shouldCaptureGatewayUsage } from "@llmr/core/gateway/http/io";
+import { formatError, forwardedIdentity, type GatewayClientCaller, gatewayClientCallerForKey, inferGatewayClient, parseJsonObject, readHeader, readRequestBody, sendJson, shouldCaptureGatewayUsage } from "@llmr/core/gateway/http/io";
 import { endpoint } from "@llmr/core/gateway/core-runtime/supervisor";
 import { maxUsageCaptureBytes, rawTraceSyncHeader, rawTraceSyncPath } from "@llmr/core/gateway/internal/shared";
 import type { RawTracePartText } from "@llmr/core/gateway/internal/shared";
@@ -1719,9 +1719,10 @@ export async function readRawTraceRequestLogBundle(
   const clientRequestHeaders = headerRecordFromUnknown(clientRequestMetadata?.headers);
   const upstreamRequestHeaders = headerRecordFromUnknown(upstreamRequestMetadata?.headers);
   const apiKeyId = readHeader(clientRequestHeaders?.["x-auth-sub"]);
-  const caller: GatewayClientCaller = apiKeyId
-    ? { kind: "key", trustedForwarder: isTrustedForwarderKey(apiKeys.find((apiKey) => apiKey.id === apiKeyId)) }
-    : { kind: "refused" };
+  const storedKey = apiKeyId ? apiKeys.find((apiKey) => apiKey.id === apiKeyId) : undefined;
+  const caller: GatewayClientCaller = storedKey
+    ? gatewayClientCallerForKey(storedKey)
+    : apiKeyId ? { kind: "key", trustedForwarder: false } : { kind: "refused" };
   const client = inferGatewayClient(caller, clientRequestHeaders ?? {});
   const forwarded = forwardedIdentity(caller, clientRequestHeaders ?? {});
   const attempt = positiveAttemptNumber(readUnknownHeader(
