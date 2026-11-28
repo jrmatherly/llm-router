@@ -105,11 +105,20 @@ test("docs build on pull requests, deploy only from main, and every job has a ti
   for (const [name, block] of jobs) assert.match(block, /^ {4}timeout-minutes: \d+$/m, name);
 });
 
-test("Dependabot covers both lockfiles, the workflows and the compose images", () => {
-  const config = readFileSync(".github/dependabot.yml", "utf8");
-  for (const [ecosystem, directory] of [["github-actions", "/"], ["npm", "/"], ["npm", "/docs"], ["docker-compose", "/docker/claude-apps-gateway"]]) {
-    assert.match(config, new RegExp(`- package-ecosystem: ${ecosystem}\\n    directory: "${directory}"\\n`), `${ecosystem} ${directory}`);
+test("Renovate covers the lockfiles, the workflows and the images, and Dependabot opens no version update", () => {
+  const renovate = JSON.parse(readFileSync("renovate.json", "utf8"));
+  for (const manager of ["github-actions", "npm", "dockerfile", "docker-compose"]) {
+    assert.ok(renovate.enabledManagers.includes(manager), manager);
   }
+  assert.equal(renovate.forkProcessing, "enabled", "the repository is a fork, which Renovate skips without this");
+  assert.match(readFileSync(".github/dependabot.yml", "utf8"), /^updates: \[\]$/m);
+  assert.notEqual(renovate.enabled, false, "with Renovate off, nothing opens a version update");
+  for (const config of [renovate, ...renovate.packageRules]) assert.notEqual(config.automerge, true, config.description ?? "top level");
+  assert.match(renovate.minimumReleaseAge ?? "", /^\d+ days?$/, "a release waits before Renovate offers it");
+  const off = renovate.packageRules.filter((rule) => rule.enabled === false);
+  assert.ok(off.some((rule) => rule.matchDatasources?.includes("node-version")), "engines keeps the Node major");
+  assert.ok(off.some((rule) => rule.matchPackageNames?.includes("actions/node-versions")), "the workflows keep the Node major");
+  assert.ok(off.some((rule) => rule.matchManagers?.includes("dockerfile") && rule.matchUpdateTypes?.includes("major")), "the Dockerfile tag keeps the Node major");
 });
 
 test("the package suites also run on Windows and an Intel Mac", () => {

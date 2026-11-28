@@ -1,0 +1,126 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", ":semanticCommits"],
+  "description": "Renovate moves what this repository pins. That is the workflow actions by commit, the Dockerfile base image by digest, the compose images of the Claude apps gateway harness, and the npm packages of the workspace and of docs. The Node major and the gateway fork tarball are raised by hand. The Node major lives in .node-version, engines, the workflows and the Dockerfile tag. Renovate raises no security fixes. Those are left to Dependabot security updates, a repository setting.",
+  "enabledManagers": ["github-actions", "npm", "dockerfile", "docker-compose", "custom.regex"],
+  "forkProcessing": "enabled",
+  "timezone": "America/New_York",
+  "minimumReleaseAge": "7 days",
+  "vulnerabilityAlerts": {
+    "enabled": false
+  },
+  "labels": ["dependencies"],
+  "schedule": ["before 7am on monday"],
+  "prHourlyLimit": 3,
+  "prConcurrentLimit": 5,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "biome.json names the schema of the Biome version package.json pins, and tests/architecture/package-scripts.test.mjs fails when the two differ",
+      "managerFilePatterns": ["/^biome\\.json$/"],
+      "matchStrings": ["biomejs\\.dev/schemas/(?<currentValue>\\d+\\.\\d+\\.\\d+)/schema\\.json"],
+      "depNameTemplate": "@biomejs/biome",
+      "datasourceTemplate": "npm"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Workflow actions: one PR, each pinned to a commit with its tag in a comment",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "semanticCommitType": "ci",
+      "automerge": false
+    },
+    {
+      "description": "Minor and patch npm updates of the workspace in one PR. A major arrives as its own PR, since most need code.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm dependencies",
+      "automerge": false
+    },
+    {
+      "description": "The docs site has its own lockfile and its own workflow",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["docs/**"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "docs dependencies",
+      "automerge": false
+    },
+    {
+      "description": "allowScripts in the root package.json approves the install scripts of esbuild, @parcel/watcher, fsevents and electron-winstaller by version. After a bump of one, run `npm install-scripts approve <pkg>` on the PR's branch. Otherwise npm skips the script and no check fails. Only esbuild is a direct dependency, so the other three move inside the PR of the package that pulls them in.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["esbuild"],
+      "groupName": "packages with install scripts",
+      "automerge": false
+    },
+    {
+      "description": "Electron, its builder and better-sqlite3 in their own PR, so the e2e job on it tests only them. better-sqlite3 loads in Electron, so read that job before merging. Its install script stays denied in allowScripts, and a bump needs no approval.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["electron", "electron-builder", "better-sqlite3"],
+      "groupName": "Electron",
+      "automerge": false
+    },
+    {
+      "description": "Biome is pinned exactly, and biome.json names the same version. Move both in one PR.",
+      "matchPackageNames": ["@biomejs/biome"],
+      "groupName": "Biome",
+      "automerge": false
+    },
+    {
+      "description": "The gateway is the fork's release tarball. Raise it by hand after a fork release.",
+      "matchPackageNames": ["@the-next-ai/ai-gateway"],
+      "enabled": false
+    },
+    {
+      "description": "An entry under overrides in the root package.json is a pin made on purpose. Raise it by hand.",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["overrides"],
+      "enabled": false
+    },
+    {
+      "description": "The Node major is set in .node-version, engines, the workflows and the Dockerfile tag. Raise them by hand in one change. This rule holds engines.",
+      "matchDatasources": ["node-version"],
+      "enabled": false
+    },
+    {
+      "description": "setup-node's node-version in the workflows. Renovate looks it up in the releases of actions/node-versions, not in the node-version datasource.",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["actions/node-versions"],
+      "enabled": false
+    },
+    {
+      "description": "@types/node stays on the Node major in .node-version. Move this limit with the Node major.",
+      "matchPackageNames": ["@types/node"],
+      "allowedVersions": "<25"
+    },
+    {
+      "description": "The Dockerfile tag names the Node major and the Debian release. Only a rebuilt digest of that tag moves here.",
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["dockerfile"],
+      "groupName": "Docker base digest",
+      "automerge": false
+    },
+    {
+      "description": "The Postgres and Dex images of the Claude apps gateway test harness",
+      "matchManagers": ["docker-compose"],
+      "groupName": "compose harness images",
+      "automerge": false
+    },
+    {
+      "description": "No CI job starts the harness, and its data volume is written by Postgres 16. Raise the major by hand after a harness run.",
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": ["postgres"],
+      "allowedVersions": "<17"
+    },
+    {
+      "description": "Dex is on GHCR, which gives no release date, so the 7-day wait would hold it for good",
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": ["ghcr.io/dexidp/dex"],
+      "minimumReleaseAge": null
+    }
+  ]
+}
