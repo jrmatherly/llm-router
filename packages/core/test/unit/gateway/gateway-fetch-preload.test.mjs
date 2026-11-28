@@ -36,6 +36,7 @@ test("gateway fetch preload applies API_TIMEOUT_MS to direct upstream fetches", 
   assert.equal(harness.agentOptions.length, 1);
   assert.equal(harness.agentOptions[0].headersTimeout, 600000);
   assert.equal(harness.agentOptions[0].bodyTimeout, 600000);
+  assert.equal(harness.agentOptions[0].allowH2, false);
   assert.equal(harness.proxyAgentOptions.length, 0);
 
   await harness.context.fetch("https://api.example.test/v1/chat/completions", { method: "POST" });
@@ -58,6 +59,7 @@ test("gateway fetch preload combines proxy routing with timeout dispatcher optio
   assert.equal(harness.proxyAgentOptions[0].uri, "http://127.0.0.1:8888");
   assert.equal(harness.proxyAgentOptions[0].headersTimeout, 600000);
   assert.equal(harness.proxyAgentOptions[0].bodyTimeout, 600000);
+  assert.equal(harness.proxyAgentOptions[0].allowH2, false);
 
   await harness.context.fetch("https://api.external.test/v1/messages", {});
   await harness.context.fetch("https://api.internal.test/v1/messages", {});
@@ -70,6 +72,16 @@ test("gateway fetch preload combines proxy routing with timeout dispatcher optio
   assert.equal(harness.bundledFetchCalls[1].init.dispatcher.kind, "direct");
   assert.equal(harness.bundledFetchCalls[2].init.dispatcher.kind, "direct");
   assert.equal(harness.bundledFetchCalls[3].init.dispatcher.kind, "direct");
+});
+
+test("gateway fetch preload keeps a proxy without a timeout on HTTP/1.1", () => {
+  const harness = executePreload({
+    LLMR_UNDICI_MODULE: "mock-undici",
+    CCR_UPSTREAM_PROXY_URL: "http://127.0.0.1:8888"
+  });
+
+  assert.equal(harness.agentOptions.length, 0);
+  assert.equal(harness.proxyAgentOptions[0].allowH2, false);
 });
 
 test("gateway fetch preload preserves explicit fetch dispatchers", async () => {

@@ -726,8 +726,9 @@ async function codexWireFixture(t, { scp = ["openid", "api.connectors.read", "ap
   const stubUrl = await listen(stub);
   // The gateway always sends Codex requests to chatgpt.com, so the child's own dispatcher redirects them.
   const preload = path.join(root, "redirect-chatgpt.mjs");
+  // Loading undici 8 later, which the auth hook does, replaces a global dispatcher that only an older undici set.
   writeFileSync(preload, `import { createRequire } from "node:module";
-const { Agent, setGlobalDispatcher } = createRequire(process.env.LLMR_TEST_GATEWAY_ENTRY)("undici");
+const { Agent, setGlobalDispatcher } = createRequire(${JSON.stringify(path.join(process.cwd(), "packages", "core", "package.json"))})("undici");
 const target = new URL(process.env.LLMR_TEST_CHATGPT_ORIGIN).origin;
 class LoopbackOnly extends Agent {
   dispatch(options, handler) {
