@@ -15,7 +15,7 @@ The tables below are the proposal as first written. These answers came the same 
 - **Fixed before the release, as Tasks 2 to 8 of [`2026-11-27-finish-and-release.md`](2026-11-27-finish-and-release.md):** F-PRICE-1, F-PRICE-2, F-PRICE-11, F-PRICE-28, F-LOGS-5, F-LABEL-4 and F-LABEL-5. The last five are listed below as `remediation`. Each was checked against `main` `b504d153` and still holds, with a test seen failing there (run, on another model).
 - **F-PRICE-10 is surveyed** in [`../research/2026-11-27-logs-row-without-usage-row.md`](../research/2026-11-27-logs-row-without-usage-row.md). It is rare. It needs the compatibility layout, a stream the client cancels or that fails partway, and the window before the catalog loads (read and inferred, not run). "Never priced" is too strong: the back-fill copies such a row into the totals, and F-PRICE-11 is what then marked it `unpriced` for good. It stays a limit, with the back-fill starting a sweep left for the remediation plan.
 - **F-PRICE-3 is researched** in [`../research/2026-11-27-zero-listed-price.md`](../research/2026-11-27-zero-listed-price.md), and the decision is still his. The recommendation is to show `$0.00` and "Listed at no charge" only for a zero that is the offer of the provider the request went to.
-- **F-PRICE-36, new from that research, `decide`.** 207 live offers listed at zero take a paid price from another offer and show it as a list price with no tilde, the opposite error to F-PRICE-3. A second researcher reproduced the count on the saved catalogs and corrected the rest (run): 9.0.0 has the same code, so the figures are old and only the "list price" label is new, from PR 177. The cause first given, a zero offer's canonical id followed to the maker's entry, accounts for 77 of the 199 models.dev cases. The other 122 take a maker's price by V-21's maker step, working as decided. Question: should a zero offer add no canonical id? Default: no change until he answers. Recommended: yes, in the PR that builds F-PRICE-3's answer.
+- **F-PRICE-36, new from that research, `decide`.** 207 live offers listed at zero take a paid price from another offer and show it as a list price with no tilde, the opposite error to F-PRICE-3. A second researcher reproduced the count on the saved catalogs and corrected the rest (run): 9.0.0 has the same code, so the figures are old and only the "list price" label is new, from PR 177. The cause first given, a zero offer's canonical id followed to the maker's entry, accounts for 77 of the 199 models.dev cases. The other 122 take a maker's price by V-21's maker step, working as decided. Question: should a zero offer add no canonical id? Default: no change until he answers. Recommended: yes, in the PR that builds F-PRICE-3's answer. **Closed by PR 185, 2026-11-27.**
 - **Every `decide` row was researched the same day.** The recommendations, grouped by when, are under "Open with the owner" in the finish plan, and the evidence is in five notes under `../research/2026-11-27-*.md`. One row below is corrected by that research: the first half of F-RESTORE-5, "a profile's record is kept while a saved original exists", is not in the code. Batch 9's review replaced it with a flag set on every finished restore (read).
 - **Group A of the finish plan was accepted the same day.** F-PRICE-34, the rename of "Estimated cost" to "Cost", merged as PR 181 (`26bd76c6`). The docs sentences for F-CODEX-1 and F-RESTORE-2 are on `main` as `fca8e250`. The refusal that F-CODEX-1's research also suggests is not built.
 - **F-GATEWAY-19's second half is answered by a read, 2026-11-27.** The gateway fork has one request path that skips the provider hook: `checkProviderHealth` builds its request from the provider's stored key and sends it with a plain fetch. Its callers are a manager route and a scheduler that is off by default, and no LLM Router source sets the option or calls the route. What it would send is the placeholder key to that provider's own address, never a session token (read at the fork's `d35913c`; that the compiled provider entry carries the placeholder is inferred). The detail is in the VM checklist. The window steps of F-GATEWAY-19 stay for the pass.
@@ -38,17 +38,17 @@ Counted by a script over the tables below.
 
 | Area | before release | decide | limit | test | remediation | Total |
 |---|---|---|---|---|---|---|
-| PRICE | 2 | 8 | 2 | 0 | 23 | 35 |
+| PRICE | 2 | 7 | 3 | 0 | 23 | 35 |
 | LOGS | 0 | 2 | 5 | 0 | 9 | 16 |
-| LABEL | 0 | 2 | 5 | 0 | 7 | 14 |
+| LABEL | 0 | 1 | 6 | 0 | 7 | 14 |
 | RESTORE | 0 | 5 | 3 | 0 | 29 | 37 |
-| CODEX | 0 | 1 | 1 | 0 | 6 | 8 |
+| CODEX | 0 | 0 | 1 | 0 | 8 | 9 |
 | GATEWAY | 0 | 2 | 11 | 0 | 6 | 19 |
-| UI | 0 | 1 | 0 | 0 | 4 | 5 |
+| UI | 0 | 0 | 0 | 0 | 5 | 5 |
 | WIN | 0 | 0 | 0 | 0 | 2 | 2 |
-| TEST | 0 | 4 | 0 | 28 | 0 | 32 |
+| TEST | 0 | 4 | 0 | 31 | 0 | 35 |
 | DOCS | 0 | 1 | 0 | 0 | 2 | 3 |
-| Total | 2 | 26 | 27 | 28 | 88 | 171 |
+| Total | 2 | 22 | 29 | 31 | 91 | 175 |
 
 ## Before release
 
@@ -67,7 +67,6 @@ Each question can be answered yes or no. The default is what happens with no ans
 
 | ID | Finding | Source | Since 9.0.0? | Evidence | Question | Default | Before release? |
 |---|---|---|---|---|---|---|---|
-| F-PRICE-3 | A model the catalog lists at zero reads "No price found", shows `-` and adds a tilde to totals, where it showed `$0.00`. 758 of 14,084 bundled offers are zero. | PR 177, audit F-2 | new | run | Should a free model read as an unknown price? | Yes, as built. A no stores a listed zero under its own label and changes V-21. | Yes |
 | F-PRICE-4 | A request with no tokens shows `-` in Logs detail and the Agent requests panel, the same sign as an unknown cost, where it showed `$0.00`. | PR 177, audit F-4 | new | run | Keep the dash for a request with no tokens? | Yes, as built | No |
 | F-PRICE-5 | Logs counts a response chunk whose only figure is a reasoning count and the usage row skips it, so the two tables can name different models for one request (705 of 4,000 generated bodies). | PR 175 | old | run. No real provider stream was shown to send one (inferred) | Give both stores one rule now? | No, leave both rules | No |
 | F-PRICE-6 | A provider's reported cost does not survive the gateway fork, so pricing Task 6 cannot work. | Delivery index question 2 | old | read | Change the fork to carry the cost? | No, drop P-5 for now | No |
@@ -77,17 +76,14 @@ Each question can be answered yes or no. The default is what happens with no ans
 | F-PRICE-34 | The Overview card and both share cards say "Estimated cost" beside a tilde that now means something narrower. | PR 177, audit F-7 | new | read | Rename the label to "Cost"? | No change until he answers. The source recommends yes. | No |
 | F-LOGS-1 | The single layout's refusal body keeps the fork's prefix before the reason. | Delivery index question 14 | old | read | Keep the prefix? | Yes. Removing it needs a fork release. | No |
 | F-LOGS-2 | A trace names a provider only for a usage event with no tokens and no cost. Built so in PR 172. | Delivery index question 15 | new | read | Keep the narrow rule? | Yes | No |
-| F-LABEL-1 | For a valid key with no display-name header, the compatibility layout shows the key's name and the single layout the `User-Agent` name. A marked key with no identity header differs the same way. | Client label plan, open item 3 and finding 5 | old | run | Leave the two layouts different? | Yes | No |
 | F-LABEL-2 | Identity headers are stored as `[redacted]` in Logs for every key, a marked key's included. Built so in PR 174. | Delivery index question 4 | new | run | Keep it for every key? | Yes | No |
 | F-RESTORE-1 | With `v2/config.json` deleted during a ZCode takeover, a switch-off leaves LLM Router's entry in the model cache under an ok status, and the user's `defaultModel` stays only in the saved original. 9.0.0 restored the cache. | PR 171 | worse | run | May a cache entry be taken by its id when the config is gone and a saved original exists? | No, left as a stated limit | No |
 | F-RESTORE-2 | The Restore original settings button covers Claude Code and Codex only. | Delivery index question 9 | old | read | Leave the button as it is? | Yes | No |
 | F-RESTORE-3 | Restore Task 9, the Codex token command prototype, has not run, and its Versions row waits. | Delivery index question 10 | old | read | Installed Codex version only? | Yes | No |
 | F-RESTORE-4 | Workbuddy's `models.json` has no stripper. It holds a placeholder and no key. Built so in PR 169. | Delivery index question 11 | old | read | Leave it? | Yes | No |
 | F-RESTORE-5 | Two researcher's choices in the restore work, built. A profile's record is kept while a saved original exists, and a save's notice is set only by a profile's own restore. | Delivery index, four choices | new | read | Keep both? | Yes | No |
-| F-CODEX-1 | An original that defines the provider table with no header makes an apply write a second table, and the file does not parse. | Delivery index question 6, stripper plan question 2 | old | run | State it as a limit and build nothing? | Yes | No |
 | F-GATEWAY-1 | The fork commit of harness Task 5 has no release. | Delivery index question 13 | old | read | Hold it until another fork change needs a release? | Yes | No |
 | F-GATEWAY-2 | Gateway phase 1 is built after the release, and nobody has said where it sits beside the remediation plan. | Delivery index, "After the release" | new | read | Remediation release first? | none given | No |
-| F-UI-1 | A saved local login that LLM Router has not checked shows green ticks, and they stay green after a failed check. PR 157's text "LLMR has not asked this provider" now sits beside a green tick. | PR 157 review | old | read | Should an unchecked local login show green? | Yes, as today. The source gives no recommendation. | No |
 | F-TEST-2 | One `npm run test` leaves 124 entries, about 38 MB, in the temp folder beside the temporary homes it removes. | Delivery index question 18 | old | run | Leave them? | Yes | No |
 | F-TEST-3 | The Windows and Intel Mac jobs are not required checks, so a red one does not block a merge and GitHub called PR 178 unstable. | Harness plan question 1, PR 178 | new | run | Leave them out of the required list? | Yes | No |
 | F-TEST-4 | H-7 of the harness plan waits on the owner's Claude Desktop check. | Delivery index question 16 | old | read | Run it in the end pass? | Yes | No |
@@ -125,6 +121,7 @@ Question 17 of the delivery index, whether merges can go without his review line
 | F-PRICE-32 | The log queue counts a price update as 128 bytes, and an update now carries its tiers. | PR 178 | new | read | none given | remediation |
 | F-PRICE-33 | Each store chooses the tier from its own token count, and the two counts can differ for one response. | PR 178 | new | read, not run | none given | remediation |
 | F-PRICE-35 | Not priced at all, by the pricing plan. Batch prices, LiteLLM's range tiers, fast mode, regional uplifts, and rows already stored with a cost are not re-priced. | Pricing plan, "Not in this plan" | old | read | none given | limit |
+| F-PRICE-37 | A zero offer no longer names its maker, so a model whose only maker link came from zero offers is priced by a later step. On the models.dev catalog of 2026-11-27, 70 bare names lose a maker price: all 70 are free aliases with no priced offer of their own, which is the intent, and none shares its maker's own name. A catalog that lists a paid model's maker link only on a zero offer of the same name would fall to the median. | PR 185 review | new | measured over the live catalog, script not kept in the repo | Count it again when the catalogs are next studied. Narrower rule if it appears: drop the link only when the bare names differ. | limit |
 
 ## LOGS
 
@@ -161,6 +158,7 @@ Question 17 of the delivery index, whether merges can go without his review line
 | F-LABEL-12 | A caller can still choose its label's text. A refused caller is named from the first token of its `User-Agent`, and `x-llmr-proxy-mode` is the caller's own header. | Client label plan findings 3 and 8 | old | run and read | none given | limit |
 | F-LABEL-13 | The mark in the config's own key list counts once, and a key whose id is exactly `profile:` keeps a mark the page hides the switch for. | Client label plan findings 4 and 9 | new | run and read | none given | limit |
 | F-LABEL-14 | In the single layout a request that passes with the core token is named from its `User-Agent` alone, and a route script no longer reads a key id from it. No code in the repo sends one. | Client label plan findings 6 and 7 | new | inferred and read | none given | limit |
+| F-LABEL-15 | Single-layout rows stored before PR 184 keep their `User-Agent` label, so a client filter lists the old and the new name for a while. | PR 184 review | new | read | None. No consumers yet. | limit |
 
 ## RESTORE
 
@@ -210,6 +208,8 @@ Question 17 of the delivery index, whether merges can go without his review line
 | F-CODEX-6 | Opening a profile whose apply was refused reports "Profile launcher was not found" and advises a re-save that does not help. PR 166's refusal of a reserved id is a second way to reach it. | Batch 7 text audit | old | read | none given | remediation |
 | F-CODEX-7 | Three stated limits of the stripper. `config.toml.llmr-original` stays after a restore, blank lines written into a CRLF file keep their LF, and a byte-order mark is moved into the file. | Stripper plan, "Not planned here" | old | run | none given | limit |
 | F-CODEX-8 | The owner's VM check that LLM Router's window shows the refusal for a reserved Codex provider id, and that a real Codex loads each rewritten config, is not done. | Stripper plan, VM check | new | not run | The end pass. | remediation |
+| F-CODEX-9 | A refused first apply still leaves the takeover record and the profile key, which the apply loop writes before any client's apply. The reserved-id refusal does the same. | PR 186 review | old | read, not run | Check that a restore over a file LLM Router never wrote changes nothing, then decide whether a refusal should skip both. | remediation |
+| F-CODEX-10 | A user who defines a provider under LLM Router's own id with a proper header has it taken out while the profile is on and put back at the switch-off, and nothing tells them. | PR 186 review | old | read in the strip and displacement code, not run | Say so where the profile's provider id is shown, or refuse as the headerless case does. | remediation |
 
 ## GATEWAY
 
@@ -241,6 +241,7 @@ Question 17 of the delivery index, whether merges can go without his review line
 | F-UI-3 | At 720 px and below a save error that persists, with its Retry button, sits at the bottom centre and could cover onboarding's footer buttons. | PR 173 | new | read, not measured | One look in the end pass. | remediation |
 | F-UI-4 | At 700 px the top navigation strip runs past the window, "Fusion" through "Extensions". | PR 173 | old | measured in the built app | none given | remediation |
 | F-UI-5 | "Price source" wraps to three lines at 1440 px, the notice reads "LiteLLM, models.dev, and OpenRouter" with a comma the plan leaves open, and the Overview grid slides over the notice for about a second after a load. | PR 177 | new | the reviewer's screenshot and run | none given | remediation |
+| F-UI-6 | A failed or refused profile apply at startup, at a provider model refresh or at a gateway takeover reaches only the log, never the window. | PR 186 review | old | read | Route those statuses to the same notice a save uses. | remediation |
 
 ## WIN
 
@@ -281,6 +282,9 @@ Question 17 of the delivery index, whether merges can go without his review line
 | F-TEST-32 | The test of F-TEST-1 proves two route scripts run at the same time. It proves they land on separate workers only because a worker runs one request at a time, and no test is known to pin that rule by itself: with both places that serialize a worker removed, the test passes on one worker. | PR 182 review | old | run by the reviewer, not repeated | A test that runs two scripts on one worker and asserts they do not overlap, after checking that none exists. | test |
 | F-TEST-33 | `raw-trace-sync.test.mjs` has a retry loop near line 916 with its own 2 second deadline, which PR 182's change to `waitFor` does not reach. It was not one of the tests that timed out. | PR 182 review | old | read | Leave it unless it fails on a slow runner. | test |
 | F-TEST-34 | `Logs rows sent before the gateway stops are listed after it` (`october-issues-wire.test.mjs`) failed on Windows on a docs-only commit of `main`, `cfcd4cae`: "Timed out waiting for gateway/logs" after 12.5 seconds, 1 failure in 2,550. The same job passed on PR 182's head and on its merge commit. Cause not known. It restarts the count of green Windows runs that remediation Task 8 waits for. | `main`, run `46083424211` | unknown | run, read from the job log | Find the cause before Windows becomes a required check. | test |
+| F-TEST-35 | `a streamed response arrives event by event (single)` in `claude-login-pass-through-wire.test.mjs` failed once on the Intel Mac on PR 186's first head, "the first event is read before the second is sent", 1 failure in 2,554. The branch does not touch it and the job passed on the next head. The failed job's log could not be downloaded afterwards. | PR 186, run `46088543904` attempt 1 | unknown | the session's read of the job, not the lead's | Find the cause before the Intel Mac job becomes a required check. | test |
+| F-TEST-36 | In `raw-trace-sync.test.mjs` the caller for a key id that names no stored key is pinned only by an older test that happens to send a display-name header, and no key in that file has a name, so the name-over-id rule rests on the 52 second wire test. | PR 184 review | new | run by the reviewer | Add the header to the no-stored-key assertion, and give one unit key a name. | test |
+| F-TEST-37 | No test makes the Codex config file unreadable, so moving the headerless check above the `try` would pass. And the doubled-config test does not assert that the user's own line survives the switch-off. | PR 186 review | new | read | One test with an unreadable file, one assertion on the user's line. | test |
 
 ## DOCS
 
@@ -297,6 +301,7 @@ Each was listed as open somewhere and is not a row above.
 - **The Intel Mac entry's four test faults.** PR 163, by the delivery index's text.
 - **The request log `flush()` budget fault and the `config.sqlite` cleanup failure on Windows.** PR 165, by the delivery index's text.
 - **F-TEST-1 and F-TEST-13.** PR 182 (`05ce1d74`): the route-script test now fails on one worker (run), and the raw trace tests wait ten seconds. The Windows stall itself was not reproduced, so F-TEST-13 is closed on one green Windows run.
+- **F-PRICE-3 and F-PRICE-36, F-CODEX-1, F-UI-1, F-LABEL-1.** Remediation Tasks 1 to 4, merged 2026-11-27 as PRs 185 (`47f258ef`), 186 (`7eeace42`), 183 (`4b6bccb6`) and 184 (`0c9f6068`), on the owner's yes to each. Nobody has seen any of the four in a window: that is the VM pass.
 - **Row S-15, two backups in one millisecond sharing a name.** PR 166, stripper Task 6. The cross-process half is still open as F-RESTORE-36.
 - **`a single-layout Logs row appears within 1500 ms of the answer` failing on slow disks.** PR 179. What it found about the fsync chain is F-LOGS-12.
 - **The OpenCode and Kilo sweep loops with no `try`** (PR 167's finding). PR 170. Read today in `restoreInactiveGlobalProfileConfigs`, where both loops now catch. The Workbuddy, Pi and ZCode loops do not, which is F-RESTORE-13.

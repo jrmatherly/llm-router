@@ -6,6 +6,8 @@
 
 > **Reviewed against the code, 2026-11-27, by the lead.** Every file, symbol, test name, helper and line reference the tasks name was checked at `main` (`2636b447`), and the tests' expected values against the audit's patches. Nothing was built or run. Five changes: Task 4 Step 1 counted three `gw` assertions where the audit's patch changes four; Task 2 Step 4 now makes its check inside the function's `try`, on the text already read; Task 1 gains a docs step and a stale assertion message to reword; Task 2 names what its tests do not cover; and "Order" carries the three points of the build method it had left out. Task 2 Step 4's placement and Task 1 Step 7c were not built.
 
+> **Tasks 1 to 4 merged, 2026-11-27.** Each was built in its own session and reviewed by the owner's `review-pr` run before its merge. Three took a fix round, and where the merged code differs from the text below, the code is right. Task 2's two refusal messages were reworded: they now say Codex cannot load the user's definition beside the table LLM Router writes, tell the user to remove that definition or change the profile's provider id, quote an id that needs it, and no longer say "on one line". Task 3's amber state could not happen as designed, because a failed check hands the UI no result: `App.tsx` now stores an empty result after a failed or thrown check (`providerConnectivityProbeAfterCheck` in `shared/providers.ts`), and the test builds its failed case with that helper. Task 1 gained three tests for mutants that survived and has its docs sentence inside the first step of the rule. What the reviews found beyond the tasks is in the register as F-PRICE-37, F-LABEL-15, F-CODEX-9 and 10, F-UI-6 and F-TEST-35 to 37.
+
 > **As first written.** Every code task here comes from a prototype that a research run on another model built at `v9.1.0`, with a test it saw fail there and pass on the prototype (its run). The lead copied each test from that run's patch and has not built or run any of it. No task is approved: each waits on the owner's answer to the decision it names. The VM pass on 9.1.0 has not been run, so its failed lines are not here yet.
 
 **Goal:** Build the changes two rounds of research recommend for the release after 9.1.0, and leave every other open finding listed with the reason it waits.
@@ -40,10 +42,10 @@ No task starts before the owner answers its row. A row he answers with "no" take
 
 | Task | Row | Round two's recommendation | His answer |
 |---|---|---|---|
-| 1 | F-PRICE-3, F-PRICE-36 | A zero that is the request's own provider's offer is a price of zero, and a zero offer leads to no maker's price | yes, 2026-11-27. Not built |
-| 2 | F-CODEX-1 | Refuse an apply over a provider written with no header of its own | yes, 2026-11-27. Not built |
-| 3 | F-UI-1 | A saved local login shows grey until checked, green on a pass, amber on a failure | yes, 2026-11-27. Not built |
-| 4 | F-LABEL-1 | A request is named by its key in both layouts | yes, 2026-11-27. Not built |
+| 1 | F-PRICE-3, F-PRICE-36 | A zero that is the request's own provider's offer is a price of zero, and a zero offer leads to no maker's price | yes, 2026-11-27. **Merged, PR 185, `47f258ef`** |
+| 2 | F-CODEX-1 | Refuse an apply over a provider written with no header of its own | yes, 2026-11-27. **Merged, PR 186, `7eeace42`** |
+| 3 | F-UI-1 | A saved local login shows grey until checked, green on a pass, amber on a failure | yes, 2026-11-27. **Merged, PR 183, `4b6bccb6`** |
+| 4 | F-LABEL-1 | A request is named by its key in both layouts | yes, 2026-11-27. **Merged, PR 184, `0c9f6068`** |
 | 5, 7 | F-TEST-13, F-TEST-1 | Fix one test fault and prove route scripts run side by side | yes, 2026-11-27. **Merged, PR 182, `05ce1d74`** |
 | 8 | F-TEST-3 | Make the Windows and Intel Mac jobs required checks | open. Task 5 is merged. Windows passed on the merge commit and failed on the next commit of `main` in another test (F-TEST-34), so the count of three is at zero |
 | 9 | F-TEST-5 | Dependabot version updates, and close Renovate's PR 168 | open |
@@ -96,7 +98,7 @@ This changes the last sentence of decision V-21, "Only a price the user set can 
 - Produces: `PriceIndex.zeroKeys: Set<string>`, the keys of offers listed at 0 and 0.
 - Produces, private to `pricing-service.ts`: `function ownEntry(index: PriceIndex | undefined, key: string): CatalogEntry | undefined`. It returns the priced entry for `key`, or exactly `{ model: key, pricing: { inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 0 }, source: "listed-free" }` when `key` is in `zeroKeys`, with no cache fields, since the test compares the whole value. Only the two own-provider steps call it.
 
-- [ ] **Step 1: Write the failing test.** Append:
+- [x] **Step 1: Write the failing test.** Append:
 
 ```js
 test("a zero the request's own provider lists is a price of zero, and a zero offer leads nowhere else", async () => {
@@ -128,13 +130,13 @@ test("a zero the request's own provider lists is a price of zero, and a zero off
 
 The third assertion is F-PRICE-36: a free host's offer on a custom provider must not borrow the maker's paid price.
 
-- [ ] **Step 2: Run it and see it fail.** `node build/test.mjs core && node --test .test-dist/core/test/unit/models/pricing-service.test.js`. Expected: FAIL on the first assertion, `{ state: "unpriced" }` where the free price is expected.
-- [ ] **Step 3: Keep the zero offers.** `addCatalogEntry` adds the key of an offer priced 0 and 0 to `index.zeroKeys` and still adds no priced entry for it. A new index starts with an empty set.
-- [ ] **Step 4: Let only the request's own provider use one.** Add `ownEntry` and call it in the two own-provider steps in place of the direct `byKey.get`. No later step of the rule reads `zeroKeys`.
-- [ ] **Step 5: A zero offer names no maker.** In `fetchModelsDevPrices`, add an offer's `canonical_model_id` to `offers.canonicalIds` only when its input and output are not both 0.
-- [ ] **Step 6: Let the source through.** Add `"listed-free"` to `CatalogPricingSource`, to `listedCostSources`, and as `"listed-free": true` to `pricingSources`, which is checked against the full set of sources, so typecheck fails without it and a stored row could not be read back. Let the amount check accept a cost of 0 for it as it does for `"custom"`. Add the label `["listed-free", "Listed at no charge"]`. Two comments become false and are rewritten: the one above the amount check that says only a user's price may come to zero, and the one above `addCatalogEntry` that calls a price of 0 and 0 "no price here".
-- [ ] **Step 7: Fix the one test that pins the old rule.** `a catalog entry priced 0 for input and output does not stop the rule`, in the same file, expects DeepSeek's zero to fall through to the LiteLLM price of 0.8 and 2. Change its first expectation to `{ inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 0 }` under `"listed-free"`, and rename it to say that a zero from the request's own provider stops the rule. Its second assertion still passes, and its message, "only a user price may come to zero", is no longer true: reword it to say that a list price that comes to zero is no cost. Any other failure is a fault of the change.
-- [ ] **Step 7b: Pin the label.** The core test checks no label, and a change that drops the label survives it (the audit's mutant). Create `packages/ui/test/unit/listed-free-label.test.ts`:
+- [x] **Step 2: Run it and see it fail.** `node build/test.mjs core && node --test .test-dist/core/test/unit/models/pricing-service.test.js`. Expected: FAIL on the first assertion, `{ state: "unpriced" }` where the free price is expected.
+- [x] **Step 3: Keep the zero offers.** `addCatalogEntry` adds the key of an offer priced 0 and 0 to `index.zeroKeys` and still adds no priced entry for it. A new index starts with an empty set.
+- [x] **Step 4: Let only the request's own provider use one.** Add `ownEntry` and call it in the two own-provider steps in place of the direct `byKey.get`. No later step of the rule reads `zeroKeys`.
+- [x] **Step 5: A zero offer names no maker.** In `fetchModelsDevPrices`, add an offer's `canonical_model_id` to `offers.canonicalIds` only when its input and output are not both 0.
+- [x] **Step 6: Let the source through.** Add `"listed-free"` to `CatalogPricingSource`, to `listedCostSources`, and as `"listed-free": true` to `pricingSources`, which is checked against the full set of sources, so typecheck fails without it and a stored row could not be read back. Let the amount check accept a cost of 0 for it as it does for `"custom"`. Add the label `["listed-free", "Listed at no charge"]`. Two comments become false and are rewritten: the one above the amount check that says only a user's price may come to zero, and the one above `addCatalogEntry` that calls a price of 0 and 0 "no price here".
+- [x] **Step 7: Fix the one test that pins the old rule.** `a catalog entry priced 0 for input and output does not stop the rule`, in the same file, expects DeepSeek's zero to fall through to the LiteLLM price of 0.8 and 2. Change its first expectation to `{ inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 0 }` under `"listed-free"`, and rename it to say that a zero from the request's own provider stops the rule. Its second assertion still passes, and its message, "only a user price may come to zero", is no longer true: reword it to say that a list price that comes to zero is no cost. Any other failure is a fault of the change.
+- [x] **Step 7b: Pin the label.** The core test checks no label, and a change that drops the label survives it (the audit's mutant). Create `packages/ui/test/unit/listed-free-label.test.ts`:
 
 ```ts
 import assert from "node:assert/strict";
@@ -150,9 +152,9 @@ test("a cost the request's own provider lists at zero reads as that list price",
 ```
 
 If the UI package keeps its unit tests under another folder, put it beside the nearest test of `shared/usage.ts`.
-- [ ] **Step 7c: Say it in the docs.** Two pages describe the price rule step by step and name the source `models.dev-median`: the "Cost shows `-`" row of `docs/src/content/docs/en/configuration/overview.md` and the local-services paragraph of `docs/src/content/docs/en/configuration/providers.md`. Add one sentence to each, after the step for the provider the base URL maps to: a model that provider lists at zero is recorded as free, with the source `listed-free`. Added by the review of 2026-11-27. The audit's build changed no docs.
-- [ ] **Step 8: Run the suites.** The test file, then `npm run test:core` with the gateway entry, then `npm run test:ui`. Expected: all pass. The research run saw 2,551 core tests with that one failure before Step 7, and 336 of 336 UI tests.
-- [ ] **Step 9: Commit.** `feat(usage): price a model its own provider lists at zero as free, and stop a free offer borrowing a paid price`
+- [x] **Step 7c: Say it in the docs.** Two pages describe the price rule step by step and name the source `models.dev-median`: the "Cost shows `-`" row of `docs/src/content/docs/en/configuration/overview.md` and the local-services paragraph of `docs/src/content/docs/en/configuration/providers.md`. Add one sentence to each, after the step for the provider the base URL maps to: a model that provider lists at zero is recorded as free, with the source `listed-free`. Added by the review of 2026-11-27. The audit's build changed no docs.
+- [x] **Step 8: Run the suites.** The test file, then `npm run test:core` with the gateway entry, then `npm run test:ui`. Expected: all pass. The research run saw 2,551 core tests with that one failure before Step 7, and 336 of 336 UI tests.
+- [x] **Step 9: Commit.** `feat(usage): price a model its own provider lists at zero as free, and stop a free offer borrowing a paid price`
 
 Stated limit: a request stored as unpriced before this task stays so, since the sweep never prices an unpriced row again. Only requests made after the upgrade read as free.
 
@@ -175,7 +177,7 @@ Branch `fix/codex-headerless-refusal`. Codex 0.172.0 loads a provider written in
 
 The research prototype returned a boolean and one message. Its message named `[model_providers.<id>]` even for a root inline table of another id, which is wrong, so this task asks for the two cases apart.
 
-- [ ] **Step 1: Write the failing test.** Insert after the test `a reserved Codex provider id is refused after it is sanitized`:
+- [x] **Step 1: Write the failing test.** Insert after the test `a reserved Codex provider id is refused after it is sanitized`:
 
 ```js
 test("a Codex apply is refused when the user's config defines a provider LLMR cannot write beside", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
@@ -247,13 +249,13 @@ test("a config 9.1.0 already doubled is refused on the next apply, and the switc
 
 All four tests were built and run by the audit. The safe-forms test passes on `main` before the change, so the premise holds.
 
-- [ ] **Step 2: Run it and see it fail.** `node build/test.mjs core && LLMR_TEST_GATEWAY_ENTRY="$PWD/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js" node --test .test-dist/core/test/integration/profiles/profile-service.test.js`. Expected: the first test FAILS on its first form with `true !== false`. If the second test fails on `main`, the task's premise about the safe forms is wrong: stop and report.
-- [ ] **Step 3: Add `headerlessCodexProviderTable`** in `codex-config-strip.ts`, over the statements `scanTomlStatements` gives, comparing keys through `tomlKey` so a quoted id matches.
-- [ ] **Step 4: Refuse in `applyCodexProfile`.** For every agent that function serves, and not only when `profile.agent === "codex"` as the reserved-id refusal beside it does: the doubled table breaks the file whichever agent writes it. Call the function on the `source` that `applyCodexProfile` already reads at the top of its `try`, before the model catalog file is written, which is the first write. Do not read the file a second time before the `try`, as the audit's build did: nothing above `applyCodexProfile` catches, so a config file that cannot be read would throw out of the whole apply where today it gives this one client a failed status (read on 2026-11-27, not run). When the function returns a case, return `refusedProfileStatus` with one of these messages, where `<file>` is the config file and `<id>` the provider id:
+- [x] **Step 2: Run it and see it fail.** `node build/test.mjs core && LLMR_TEST_GATEWAY_ENTRY="$PWD/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js" node --test .test-dist/core/test/integration/profiles/profile-service.test.js`. Expected: the first test FAILS on its first form with `true !== false`. If the second test fails on `main`, the task's premise about the safe forms is wrong: stop and report.
+- [x] **Step 3: Add `headerlessCodexProviderTable`** in `codex-config-strip.ts`, over the statements `scanTomlStatements` gives, comparing keys through `tomlKey` so a quoted id matches.
+- [x] **Step 4: Refuse in `applyCodexProfile`.** For every agent that function serves, and not only when `profile.agent === "codex"` as the reserved-id refusal beside it does: the doubled table breaks the file whichever agent writes it. Call the function on the `source` that `applyCodexProfile` already reads at the top of its `try`, before the model catalog file is written, which is the first write. Do not read the file a second time before the `try`, as the audit's build did: nothing above `applyCodexProfile` catches, so a config file that cannot be read would throw out of the whole apply where today it gives this one client a failed status (read on 2026-11-27, not run). When the function returns a case, return `refusedProfileStatus` with one of these messages, where `<file>` is the config file and `<id>` the provider id:
   - `"own-id"`: `<file> defines the provider "<id>" without its own [model_providers.<id>] header, so Codex would not start once LLMR adds its table. Move that provider under its own header, or set this profile's providerId in LLM Router's config to another id. LLMR left <file> unchanged.`
   - `"root-inline"`: `<file> defines model_providers on one line, so Codex would not start once LLMR adds its table. Write each provider under its own [model_providers.<name>] header. LLMR left <file> unchanged.`
-- [ ] **Step 5: Run the file and the core suite.** Expected: PASS. The research run's prototype left 2,551 core tests at 0 failures.
-- [ ] **Step 6: Commit.** `fix(profiles): refuse a Codex apply over a provider written with no header of its own`
+- [x] **Step 5: Run the file and the core suite.** Expected: PASS. The research run's prototype left 2,551 core tests at 0 failures.
+- [x] **Step 6: Commit.** `fix(profiles): refuse a Codex apply over a provider written with no header of its own`
 
 Not tested: the refusal for an agent other than Codex. Every test here applies `default-codex`, so a change that refuses only when `profile.agent === "codex"` survives them. A reviewer reads that condition.
 
@@ -273,7 +275,7 @@ Branch `fix/provider-local-login-status`. Today both rows of the provider form's
 **Interfaces:**
 - Produces: for a local login, the second row reads "Not checked" and is grey before any check, reads "Connection verified" and is green after a check that found a supported protocol, and reads "Last check failed" and is amber after one that did not. The first row is green only when a probe or a passed check found a protocol. `connectionVerified` is true only when the check passed. The Verify step reads "Done" only then.
 
-- [ ] **Step 1: Write the failing test.** Create the file:
+- [x] **Step 1: Write the failing test.** Create the file:
 
 ```tsx
 import assert from "node:assert/strict";
@@ -331,11 +333,11 @@ test("a saved local login shows grey before a check, green after a pass, amber a
 
 Built and run by the audit. Two assertions guard against a half fix and do not fail at 9.1.0. Both rows green after a pass is true today through the shortcut this task removes, and fails only if the shortcut goes and a passed check is not counted. The first row grey after a failed check kills a fix that turns it green after any check (the audit's mutant).
 
-- [ ] **Step 2: Run it and see it fail.** `node build/test.mjs ui && node --test .test-dist/ui/test/component/provider-local-login-status.test.js`. Expected: FAIL on the first assertion, with both rows green before any check.
-- [ ] **Step 3: Read the check's result.** In `ProviderConnectionStatusPanel`, the second row's title, text and state follow `connectionVerified` first, then, for a local login, whether a check has run. Its description is "LLMR has not sent a request through this local login yet. Check Connection sends one." before a check and "The last real model request through this local login failed. Check Connection tries again." after a failed one. Delete `claudeLoginProvider` in `AddProviderDialog`, which nothing reads once `verified` follows the check alone, or typecheck fails. The first row's state counts a passed check as a detected protocol and no longer counts a local login by itself. In `AddProviderForm` and `AddProviderDialog`, verified means the check found a supported protocol and nothing else. The Claude Code login provider cannot be checked and keeps the "Not checked" text it has today.
-- [ ] **Step 4: Fix the one test that pins the old text.** In `provider-dialog-local-agent.test.tsx`, the test named above asserts "Available after saving". It now fails. Change that assertion to `/Not checked/`.
-- [ ] **Step 5: Run the UI suite and typecheck.** `npm run test:ui && npm run typecheck`. Expected: all pass.
-- [ ] **Step 6: Commit.** `fix(ui): show a saved local login as checked only after a check passed`
+- [x] **Step 2: Run it and see it fail.** `node build/test.mjs ui && node --test .test-dist/ui/test/component/provider-local-login-status.test.js`. Expected: FAIL on the first assertion, with both rows green before any check.
+- [x] **Step 3: Read the check's result.** In `ProviderConnectionStatusPanel`, the second row's title, text and state follow `connectionVerified` first, then, for a local login, whether a check has run. Its description is "LLMR has not sent a request through this local login yet. Check Connection sends one." before a check and "The last real model request through this local login failed. Check Connection tries again." after a failed one. Delete `claudeLoginProvider` in `AddProviderDialog`, which nothing reads once `verified` follows the check alone, or typecheck fails. The first row's state counts a passed check as a detected protocol and no longer counts a local login by itself. In `AddProviderForm` and `AddProviderDialog`, verified means the check found a supported protocol and nothing else. The Claude Code login provider cannot be checked and keeps the "Not checked" text it has today.
+- [x] **Step 4: Fix the one test that pins the old text.** In `provider-dialog-local-agent.test.tsx`, the test named above asserts "Available after saving". It now fails. Change that assertion to `/Not checked/`.
+- [x] **Step 5: Run the UI suite and typecheck.** `npm run test:ui && npm run typecheck`. Expected: all pass.
+- [x] **Step 6: Commit.** `fix(ui): show a saved local login as checked only after a check passed`
 
 Not tested: the dialog's own Verify step. `AddProviderDialog` renders into a portal, so a static render gives nothing, the UI tests have no DOM, and a change that keeps the old shortcut in the dialog's `verified` prop survives every test (the audit's mutant). Its progress bar shows only when adding a provider. A reviewer reads that one line.
 
@@ -355,13 +357,13 @@ Branch `fix/client-label-key-name`. Today a request with a valid key and no disp
 - Consumes: `gatewayClientCallerForKey` from `gateway/http/io.ts`, as it is.
 - Produces: in `readRawTraceRequestLogBundle`, a caller built with `gatewayClientCallerForKey(apiKey)` when the trace's key id names a stored key, `{ kind: "key", trustedForwarder: false }` when it names none, and `{ kind: "refused" }` when the trace has no key id.
 
-- [ ] **Step 1: Change what six tests expect.** These pin the old single-layout label. The four in `october-issues-wire.test.mjs` have names built from a template, so search for the words before "(single)". Their expectations are written as a choice by layout: five as `layout === "compat" ? X : "Node.js"`, nine as `single ? "Node.js" : X`, and one as `single ? "u".repeat(120) : "wire"`. Each becomes its compatibility value alone. The two `"Node.js"` assertions on `refusedForKey` stay. The two in `raw-trace-sync.test.mjs` have no compatibility case and their keys have no name, so the expected client becomes the key's id, `gw` in four assertions (two in each test) and `profile:codex` in one, and a trace with no stored key or no key id keeps `Claude`. The six:
+- [x] **Step 1: Change what six tests expect.** These pin the old single-layout label. The four in `october-issues-wire.test.mjs` have names built from a template, so search for the words before "(single)". Their expectations are written as a choice by layout: five as `layout === "compat" ? X : "Node.js"`, nine as `single ? "Node.js" : X`, and one as `single ? "u".repeat(120) : "wire"`. Each becomes its compatibility value alone. The two `"Node.js"` assertions on `refusedForKey` stay. The two in `raw-trace-sync.test.mjs` have no compatibility case and their keys have no name, so the expected client becomes the key's id, `gw` in four assertions (two in each test) and `profile:codex` in one, and a trace with no stored key or no key id keeps `Claude`. The six:
   - in `october-issues-wire.test.mjs`: `the client label holds for every source and caller (single)`, `the client label follows the key's trusted forwarder mark (single)`, `the client label follows the key's trusted forwarder mark (single, logs off)`, and `a request from a marked key is recorded under the developer's id and e-mail, and one from another key naming the same developer is not (single)`
   - in `raw-trace-sync.test.mjs`: `raw trace usage capture keeps the client label the request log gets` and `a trace records the developer only when its key is a trusted forwarder`
-- [ ] **Step 2: Run both files and see the six fail.** With the gateway entry set. Expected: those six FAIL on the client label and nothing else does.
-- [ ] **Step 3: Build the caller from the key.** Replace the inline caller in `readRawTraceRequestLogBundle` as the Interfaces block says, and drop the import of `isTrustedForwarderKey` if nothing else in the file uses it.
-- [ ] **Step 4: Run the core suite.** Expected: PASS. Five Codex wire tests failed for two research runs under an environment with no variables and pass in CI. If they fail here too, run them on `main` in the same shell before blaming the change.
-- [ ] **Step 5: Commit.** `fix(gateway): name a request by its key in the single layout, as the other layout does`
+- [x] **Step 2: Run both files and see the six fail.** With the gateway entry set. Expected: those six FAIL on the client label and nothing else does.
+- [x] **Step 3: Build the caller from the key.** Replace the inline caller in `readRawTraceRequestLogBundle` as the Interfaces block says, and drop the import of `isTrustedForwarderKey` if nothing else in the file uses it.
+- [x] **Step 4: Run the core suite.** Expected: PASS. Five Codex wire tests failed for two research runs under an environment with no variables and pass in CI. If they fail here too, run them on `main` in the same shell before blaming the change.
+- [x] **Step 5: Commit.** `fix(gateway): name a request by its key in the single layout, as the other layout does`
 
 What moves beside the label (the research run): in Agent Analysis a key named `codex` that sends `curl` becomes agent `codex` in the single layout, as it already is in the other. A request with `x-llmr-proxy-mode: gateway` keeps its `User-Agent` name in both layouts, before and after.
 
@@ -516,7 +518,7 @@ Each waits for the owner, for the VM pass, or for a design nobody has made.
 - **Deferred by the owner on 2026-11-27, ZCode.** Two System default ZCode profiles leave the profile key on disk (the research run). The current ZCode app may ignore every file LLM Router writes (read in its public source). A user's ZCode cache that names LLM Router's id refuses the switch-off. And F-RESTORE-1: the rule round one proposed should not be built as specified, since it makes a failed switch-off stick in 186 of 4,000 generated scenarios.
 - **Deferred against round two's advice.** Round two said to fix the provider-name strip in the price lookup in Task 1's PR, and sketched two ways: try the model id as sent before the stripped form, or strip only when the provider's own model list holds the stripped name. It is left out here because neither way was built, no unit test pins the fault, only a script over the live catalogs shows it, and it changes the lookup for paid models too. It needs a prototype and a failing test of its own first. Until then 23 of the 96 offers Task 1 aims at stay wrong for a provider left at its preset name.
 - **Open, no design.** The fork change for a single-layout refusal's reason (F-LOGS-1). The identity header rule (F-LABEL-5): the gateway replaces a client's copy, so a repeated header never arrives through it, and the rule waits for a case that needs it.
-- **Open, a decision.** Pricing Task 8 itself, once its text is corrected. Squash-only merges and SHA pinning for actions, the two RS-5 settings left beside Task 9. The 88 `remediation` and 28 `test` rows of the register, which nobody has sorted into tasks: the owner says which matter after the VM pass.
+- **Open, a decision.** Pricing Task 8 itself, once its text is corrected. Squash-only merges and SHA pinning for actions, the two RS-5 settings left beside Task 9. The 91 `remediation` and 31 `test` rows of the register, which nobody has sorted into tasks: the owner says which matter after the VM pass.
 - **Stays as it is, by both rounds.** F-PRICE-4, 5, 6, 8 and 9. F-LOGS-2, F-LABEL-2. F-RESTORE-2, 4 and 5. F-TEST-2. F-GATEWAY-2, apart from the four text lines of Task 11.
 
 ## Self-review
