@@ -211,7 +211,7 @@ Changing internal ports requires corresponding Nginx/PM2 variables and offers no
 
 ## Build Options And Smoke Test
 
-The Dockerfile builds and runs on `node:24-bookworm-slim`, pinned by digest. Update the digest when Node publishes a fix (`docker buildx imagetools inspect node:24-bookworm-slim`). Override the base images when required:
+The Dockerfile builds and runs on `node:24-bookworm-slim`, pinned by digest. Renovate opens a PR when that tag is rebuilt (`docker buildx imagetools inspect node:24-bookworm-slim` shows the current digest). Override the base images when required:
 
 ```sh
 docker build \

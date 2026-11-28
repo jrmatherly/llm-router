@@ -1,6 +1,7 @@
-# Renovate (renovate.json) moves what this repository pins: the SHA-pinned
-# GitHub Actions, the Dockerfile base digest, the compose images and the npm
-# packages. No version updates here, so the two bots never open the same bump.
-# Dependabot security updates are a repository setting and do not read this file.
+# Renovate (renovate.json) moves the SHA-pinned GitHub Actions, the Dockerfile
+# base digest, the compose images and the npm packages. This file asks for no
+# version updates, so the two bots never open the same bump. Dependabot security
+# updates are a repository setting. With no entries here they open their PRs
+# with GitHub's defaults.
 version: 2
 updates: []

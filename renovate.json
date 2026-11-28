@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests", ":semanticCommits"],
-  "description": "Scope: what this repository pins. Workflow actions by commit, the Dockerfile base image by digest, the compose images of the Claude apps gateway harness, and the npm packages of the workspace and of docs. The fork's divergence from upstream is intended, so its npm pins are its own. Raised by hand: the Node major (.node-version, engines, the workflows and the Dockerfile tag together) and the gateway fork tarball. Security fixes come from Dependabot security updates (a repository setting), which Renovate would raise a second time.",
+  "description": "Renovate moves what this repository pins. That is the workflow actions by commit, the Dockerfile base image by digest, the compose images of the Claude apps gateway harness, and the npm packages of the workspace and of docs. The Node major and the gateway fork tarball are raised by hand. The Node major lives in .node-version, engines, the workflows and the Dockerfile tag. Renovate raises no security fixes. Those are left to Dependabot security updates, a repository setting.",
   "enabledManagers": ["github-actions", "npm", "dockerfile", "docker-compose", "custom.regex"],
   "forkProcessing": "enabled",
   "timezone": "America/New_York",
@@ -47,16 +47,16 @@
       "automerge": false
     },
     {
-      "description": "Each has an install script that allowScripts in the root package.json approves by version. After a bump run `npm install-scripts approve <pkg>` on the PR's branch, or the script is skipped and CI still passes.",
+      "description": "allowScripts in the root package.json approves the install scripts of esbuild, @parcel/watcher, fsevents and electron-winstaller by version. After a bump of one, run `npm install-scripts approve <pkg>` on the PR's branch. Otherwise npm skips the script and no check fails. Only esbuild is a direct dependency, so the other three move inside the PR of the package that pulls them in.",
       "matchManagers": ["npm"],
-      "matchPackageNames": ["electron-winstaller", "esbuild", "@parcel/watcher", "fsevents", "better-sqlite3"],
+      "matchPackageNames": ["esbuild"],
       "groupName": "packages with install scripts",
       "automerge": false
     },
     {
-      "description": "Electron and its builder in their own PR, so the e2e job on it tests only them. better-sqlite3 loads in Electron's V8, so read that job before merging.",
+      "description": "Electron, its builder and better-sqlite3 in their own PR, so the e2e job on it tests only them. better-sqlite3 loads in Electron, so read that job before merging. Its install script stays denied in allowScripts, and a bump needs no approval.",
       "matchManagers": ["npm"],
-      "matchPackageNames": ["electron", "electron-builder"],
+      "matchPackageNames": ["electron", "electron-builder", "better-sqlite3"],
       "groupName": "Electron",
       "automerge": false
     },
@@ -72,17 +72,29 @@
       "enabled": false
     },
     {
-      "description": "The Node major is set in .node-version, engines, the workflows and the Dockerfile tag. Raise them by hand in one change.",
+      "description": "An entry under overrides in the root package.json is a pin made on purpose. Raise it by hand.",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["overrides"],
+      "enabled": false
+    },
+    {
+      "description": "The Node major is set in .node-version, engines, the workflows and the Dockerfile tag. Raise them by hand in one change. This rule holds engines.",
       "matchDatasources": ["node-version"],
       "enabled": false
     },
     {
-      "description": "@types/node follows the Node major the project runs",
+      "description": "setup-node's node-version in the workflows. Renovate looks it up in the releases of actions/node-versions, not in the node-version datasource.",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["actions/node-versions"],
+      "enabled": false
+    },
+    {
+      "description": "@types/node stays on the Node major in .node-version. Move this limit with the Node major.",
       "matchPackageNames": ["@types/node"],
       "allowedVersions": "<25"
     },
     {
-      "description": "The Dockerfile tag is the Node major. Only a rebuilt digest of that tag moves here.",
+      "description": "The Dockerfile tag names the Node major and the Debian release. Only a rebuilt digest of that tag moves here.",
       "matchManagers": ["dockerfile"],
       "matchUpdateTypes": ["major", "minor", "patch"],
       "enabled": false
@@ -97,6 +109,18 @@
       "matchManagers": ["docker-compose"],
       "groupName": "compose harness images",
       "automerge": false
+    },
+    {
+      "description": "No CI job starts the harness, and its data volume is written by Postgres 16. Raise the major by hand after a harness run.",
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": ["postgres"],
+      "allowedVersions": "<17"
+    },
+    {
+      "description": "Dex is on GHCR, which gives no release date, so the 7-day wait would hold it for good",
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": ["ghcr.io/dexidp/dex"],
+      "minimumReleaseAge": null
     }
   ]
 }
