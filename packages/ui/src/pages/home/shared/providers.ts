@@ -1913,6 +1913,10 @@ export function providerProbeHasSupportedProtocol(probe: GatewayProviderProbeRes
   return Boolean(probe?.protocols.some((item) => item.supported && (!protocol || item.protocol === protocol)));
 }
 
+export function providerConnectivityProbeAfterCheck(probe?: GatewayProviderProbeResult): GatewayProviderProbeResult {
+  return probe ?? { models: [], normalizedBaseUrl: "", protocols: [] };
+}
+
 export function presetCapabilitiesFromDraft(draft: AddProviderDraft): GatewayProviderCapability[] {
   const preset = findProviderPreset(draft.presetId);
   if (!preset) {

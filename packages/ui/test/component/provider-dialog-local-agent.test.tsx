@@ -162,7 +162,7 @@ test("a Codex login provider keeps its heading, its connection check and its mod
   });
   assert.match(html, /Signed in with your local agent/);
   assert.match(html, /Check Connection/);
-  assert.match(html, /Available after saving/);
+  assert.match(html, /Not checked/);
   assert.match(html, /Refresh provider models/);
   assert.match(html, /Run a real model request/);
   assert.match(html, /LLMR has not asked this provider for a model list\./);
