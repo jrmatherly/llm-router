@@ -591,15 +591,16 @@ function gatewayFetchPreloadScript(): string {
     "const hasTimeout = Number.isFinite(parsedTimeout) && parsedTimeout >= 0;",
     "if ((up || hasTimeout) && um) {",
     "  const { Agent, ProxyAgent, fetch: bundledFetch } = require(um);",
-    "  const timeoutOptions = hasTimeout ? { headersTimeout: Math.trunc(parsedTimeout), bodyTimeout: Math.trunc(parsedTimeout) } : {};",
-    "  const directAgent = hasTimeout ? new Agent(timeoutOptions) : undefined;",
-    "  const proxyAgent = up ? new ProxyAgent(Object.assign({ uri: up }, timeoutOptions)) : undefined;",
+    // undici 8 negotiates HTTP/2 over TLS by default; the fusion MCP servers have always reached outside hosts through the proxy over HTTP/1.1.
+    "  const dispatcherOptions = Object.assign({ allowH2: false }, hasTimeout ? { headersTimeout: Math.trunc(parsedTimeout), bodyTimeout: Math.trunc(parsedTimeout) } : {});",
+    "  const directAgent = hasTimeout ? new Agent(dispatcherOptions) : undefined;",
+    "  const proxyAgent = up ? new ProxyAgent(Object.assign({ uri: up }, dispatcherOptions)) : undefined;",
     "  const realFetch = globalThis.fetch.bind(globalThis);",
     // The injected Agent/ProxyAgent come from the bundled undici module, so
     // they must be paired with that module's own fetch: Node's built-in fetch
-    // can use a different undici major (Node >= 25 ships undici 8 while LLMR
-    // bundles undici 7), and a dispatcher from one major fails inside the
-    // other's fetch with UND_ERR_INVALID_ARG ("invalid onError method").
+    // can use a different undici major (Node 24 ships undici 7 while LLMR
+    // bundles undici 8), and a dispatcher from one major fails inside the
+    // other's fetch with UND_ERR_INVALID_ARG ("invalid onRequestStart method").
     // Calls that already carry a caller-provided dispatcher stay on the
     // global fetch; pairing those is the caller's responsibility
     // (@the-next-ai/ai-gateway >= 1.0.18 pairs its own dispatchers).

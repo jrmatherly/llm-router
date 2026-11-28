@@ -80,6 +80,8 @@ test("npm and Docker builds carry the plugin-capable gateway runtime", () => {
 
   assert.match(buildConfig, /export function createCliBuildOptions[\s\S]*?entryPoints:\s*\[[\s\S]*?gatewayRuntimeInput/);
   assert.match(buildConfig, /export function createCoreServerBuildOptions[\s\S]*?entryPoints:\s*\[[\s\S]*?gatewayRuntimeInput/);
+  assert.match(buildConfig, /export function createCliBuildOptions[\s\S]*?entryPoints:\s*\[[\s\S]*?electronUndiciProxyAgentInput/);
+  assert.match(buildConfig, /export function createCoreServerBuildOptions[\s\S]*?entryPoints:\s*\[[\s\S]*?electronUndiciProxyAgentInput/);
   assert.equal(manifest.scripts["docker:prepare-gateway"], "node build/docker-local-gateway.mjs prepare");
   assert.equal(manifest.scripts["docker:build"], "node build/docker-image.mjs");
   assert.equal(manifest.scripts["docker:compose:build"], "node build/docker-compose.mjs build");

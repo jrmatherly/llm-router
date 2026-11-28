@@ -331,7 +331,8 @@ export function createCliBuildOptions({ mode = "production", plugins = [] } = {}
       path.join(coreSourceRoot, "routing", "route-script-worker.ts"),
       localAgentAuthProviderHookInput,
       routerPluginInput,
-      upstreamHeaderSanitizerInput
+      upstreamHeaderSanitizerInput,
+      electronUndiciProxyAgentInput
     ],
     external: nodeExternals.filter((moduleName) => moduleName !== "electron"),
     format: "cjs",
@@ -364,7 +365,8 @@ export function createCoreServerBuildOptions({ mode = "production", plugins = []
       path.join(coreSourceRoot, "routing", "route-script-worker.ts"),
       localAgentAuthProviderHookInput,
       routerPluginInput,
-      upstreamHeaderSanitizerInput
+      upstreamHeaderSanitizerInput,
+      electronUndiciProxyAgentInput
     ],
     external: nodeExternals.filter((moduleName) => moduleName !== "electron"),
     format: "cjs",

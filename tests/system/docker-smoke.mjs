@@ -135,6 +135,7 @@ try {
   const gatewayHealth = await fetch(`${baseUrl}/health`);
   assert.equal(gatewayHealth.status, 502, "Gateway health should be proxied by Nginx and fail while no models are configured");
   assert.equal(await waitForHealth(containerId), "healthy", "A container with no models configured is still healthy");
+  dockerExec(containerId, ["sh", "-c", "find /app/packages/core/dist -name undici-proxy-agent.js | grep ."]);
 
   const openRouterConfig = {
     ...configPayload.value,

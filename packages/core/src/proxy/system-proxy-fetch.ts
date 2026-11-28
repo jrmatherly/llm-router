@@ -1,4 +1,4 @@
-import { ProxyAgent, type Dispatcher } from "undici";
+import { Dispatcher1Wrapper, ProxyAgent, type Dispatcher } from "undici";
 import { loadAppConfig } from "@llmr/core/config/config";
 import {
   customUpstreamProxyFromConfig,
@@ -210,7 +210,8 @@ function proxyDispatcher(proxyUrl: string): Dispatcher {
   if (existing) {
     return existing;
   }
-  const dispatcher = new ProxyAgent(proxyUrl);
+  // Node 24's fetch (bundled undici 7) calls the v1 handler API, which an undici 8 dispatcher rejects unless wrapped; a Node whose fetch is undici 8 gets its handlers passed through.
+  const dispatcher = new Dispatcher1Wrapper(new ProxyAgent(proxyUrl));
   proxyDispatchers.set(proxyUrl, dispatcher);
   return dispatcher;
 }
